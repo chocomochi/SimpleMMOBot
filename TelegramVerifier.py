@@ -158,7 +158,6 @@ class TelegramVerifier:
 
         try:
             parsedResult = json.loads(result.text)
-            print(parsedResult)
             isSuccess = parsedResult["type"] == "success"
             if isSuccess:
                 return True
