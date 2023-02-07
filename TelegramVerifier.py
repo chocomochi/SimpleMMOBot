@@ -70,7 +70,7 @@ class TelegramVerifier:
         self.application = Application.builder().token(token = token).build()
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CallbackQueryHandler(self.onItemClick))
-        self.application.add_error_handler()
+        self.application.add_error_handler(errorHandler)
 
     def startPolling(self):
         self.application.run_polling()
@@ -186,7 +186,6 @@ class TelegramVerifier:
         if isSuccess:
             print("> Verification successful!")
             status = "correct ✔️"
-            self.isUserCorrect = True
         else:
             print("> Verification failed!")
 
@@ -195,6 +194,7 @@ class TelegramVerifier:
             chat_id = self.chatId,
             text = f"🔒 Verification [{query.data}] is {status}"
         )
+        self.isUserCorrect = isSuccess
     
     # Ping function
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
