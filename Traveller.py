@@ -20,9 +20,11 @@ class Traveller:
         Npc = 4
         Player = 5
 
-    def __init__(self, csrfToken: str, apiToken: str, apiEndpoint: str) -> None:
+    def __init__(self, csrfToken: str, apiToken: str, apiEndpoint: str, runMode: int = 1) -> None:
         cookie = CookieParser()
-        self.WINDOWS_NOTIFIER = WindowsNotifier(tag = "SimpleMMO")
+        self.runMode = runMode
+        if runMode == 1:
+            self.WINDOWS_NOTIFIER = WindowsNotifier(tag = "SimpleMMO")
         self.COOKIE = cookie.COOKIE
         self.CSRF_TOKEN = csrfToken
         self.API_TOKEN = apiToken
@@ -50,12 +52,15 @@ class Traveller:
             if shouldPerformVerification:
                 self.stepCount += 1
                 print(f"[STEP #{self.stepCount}] ALERT: Perform Verification!")
-                self.WINDOWS_NOTIFIER.showSnackbar(
-                    title = "❗❗ VERIFICATION ALERT ❗❗",
-                    message = "Please verify as soon as possible!",
-                    duration = 'long',
-                    icon = r"F:\dont_touch\pythons\simple-mmo-bot\res\alert.png"
-                )
+                if self.runMode == 1:
+                    self.WINDOWS_NOTIFIER.showSnackbar(
+                        title = "❗❗ VERIFICATION ALERT ❗❗",
+                        message = "Please verify as soon as possible!",
+                        duration = 'long',
+                        icon = r"F:\dont_touch\pythons\simple-mmo-bot\res\alert.png"
+                    )
+                else:
+                    input("> Please verify asap and press enter here to continue travelling...")
                 
                 return 0
 
@@ -216,7 +221,14 @@ class Traveller:
 
                     if isOpponentDefeated:
                         battleRewards = battleResults["result"]
-                        print(f"> You've won! Rewards: {self.parseBattleRewards(battleRewards).strip()}")
+                        battleMessage = self.parseBattleRewards(battleRewards).strip()
+                        
+                        shouldVerify = battleMessage.count("verify") > 0
+                        if shouldVerify:
+                            print(f"> ALERT: Perform Verification")
+                            break
+                        
+                        print(f"> You've won! Rewards: {battleMessage}")
                     
                     humanizedSeconds = randint(1, 5)
                     time.sleep(humanizedSeconds)

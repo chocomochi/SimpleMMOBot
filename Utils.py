@@ -8,6 +8,9 @@ def removeHtmlTags(rawHtml: str) -> str:
 def getStringInBetween(string: str, delimiter1: str, delimiter2: str) -> str:
     return string.split(delimiter1)[1].split(delimiter2)[0]
 
+def millisecondsToSeconds(milliseconds: int) -> float:
+    return milliseconds / 1000
+
 def getMultipleStringsInBetween(string: str, delimiter1: str, delimiter2: str) -> list[str]:
     foundOccurences = string.split(delimiter1)
 
