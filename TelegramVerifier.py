@@ -70,7 +70,7 @@ class TelegramVerifier:
         self.application = Application.builder().token(token = token).build()
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CallbackQueryHandler(self.onItemClick))
-        self.application.add_error_handler(errorHandler)
+        self.application.add_error_handler(self.errorHandler)
 
     def startPolling(self):
         self.application.run_polling()
