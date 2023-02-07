@@ -101,6 +101,7 @@ class TelegramVerifier:
             text = text,
             reply_markup = InlineKeyboardMarkup(buttons)
         )
+        print("> Please answer immediately!")
     
     async def onItemClick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
@@ -118,14 +119,17 @@ class TelegramVerifier:
         elif "4" == query.data:
             isSuccess = self.getVerificationResults(itemPosition=3)
         
-        status = "INCORRECT"
+        status = "incorrect ❗"
         if isSuccess:
-            status = "CORRECT"
+            print("> Verification successful!")
+            status = "correct ✔️"
             self.isUserCorrect = True
+        else:
+            print("> Verification failed!")
 
         await query.answer()
         await query.edit_message_reply_markup(reply_markup=None)
-        await query.edit_message_text(text = f"❗❗ VERIFICATION [{query.data}] is {status} ❗❗")
+        await query.edit_message_text(text = f"🔒 Verification [{query.data}] is {status}")
     
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Sends a message with three inline buttons attached."""
