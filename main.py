@@ -8,7 +8,7 @@ import Utils
 import argparse
 
 parser = argparse.ArgumentParser(description = "Traveller")
-parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: windows w/ telegram), (2: phone w/ telegram), (3: phone w/o telegram)")
+parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: windows w/ telegram), (2: phone w/ telegram), (3: plain script, no integrations or whatsoever)")
 args = parser.parse_args()
 
 async def takeSteps(traveller: Traveller, telegramBot: TelegramVerifier, runMode: int):
