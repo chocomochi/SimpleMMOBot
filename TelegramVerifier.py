@@ -1,11 +1,50 @@
 from telegram import *
 from telegram.ext import *
+from dotenv import load_dotenv
+from random import randint
+from PIL import Image, ImageDraw
+from io import BytesIO
 import requests
 import Utils
-from dotenv import load_dotenv
 import os
-from random import randint
 import json
+
+
+class CollageCreator:
+    def createCollage(self, imagesBytesList: list[bytes]) -> BytesIO:
+        new = Image.new("RGBA", (100,100))
+        memory = BytesIO()
+
+        for i in range(len(imagesBytesList)):
+            imageBytes = imagesBytesList[i]
+            image = Image.open(BytesIO(imageBytes))
+            image = image.resize((50, 50))
+            draw = ImageDraw.Draw(image)
+            draw.text((0, 0), str(i + 1), (87, 0, 3))
+
+            height = 0
+            width = 0
+            if i == 1:
+                width = 50
+            elif i == 2:
+                height = 50
+            elif i == 3:
+                height = 50
+                width = 50
+
+            new.paste(image, (height,width))
+
+        memory.name = "image.png"
+        new.save(
+            memory, 
+            "PNG", 
+            optimize = True, 
+            quality = 10
+        )
+        memory.seek(0)
+        return memory
+        
+        
 
 class TelegramVerifier:
     WEB_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot"
@@ -26,11 +65,12 @@ class TelegramVerifier:
         self.application = Application.builder().token(token = token).build()
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CallbackQueryHandler(self.onItemClick))
+        self.jobQueue = self.application.job_queue
 
     def startPolling(self):
         self.application.run_polling()
     
-    async def verify(self):
+    async def verify(self) -> bool:
         self.isUserCorrect = False
         response = requests.get(
             url = self.WEB_VERIFICATION_ENDPOINT,
@@ -49,12 +89,26 @@ class TelegramVerifier:
             self.itemKeys = self.getItemKeys(response.text)
             self.itemKeys.pop(0)
             itemImages = self.getItemImages()
+            collageCreator = CollageCreator()
+            collagedImages = collageCreator.createCollage(itemImages)
 
-            await self.sendItemImages(
-                updater = self.application.updater,
-                text = f"🔍 Find: {objectToFind.strip()}",
-                media = itemImages
+            buttons = [
+                [InlineKeyboardButton("1", callback_data="1")],
+                [InlineKeyboardButton("2", callback_data="2")],
+                [InlineKeyboardButton("3", callback_data="3")],
+                [InlineKeyboardButton("4", callback_data="4")]
+            ]
+
+            print("> Sending the images...")
+            await self.application.updater.bot.sendPhoto(
+                chat_id = self.chatId,
+                photo = collagedImages,
+                caption = f"🔍 Find: {objectToFind.strip()}",
+                reply_markup = InlineKeyboardMarkup(buttons)
             )
+            
+            print("> Images have been sent! Please answer immediately!")
+            return True
         except:
             raise self.CannotVerify("Please verify it manually, ASAP!")
     
@@ -65,7 +119,7 @@ class TelegramVerifier:
             delimiter2 = '\');"'
         )
     
-    def getItemImages(self) -> list[InputMediaPhoto]:
+    def getItemImages(self) -> list[bytes]:
         contents = []
 
         for i in range(0, 4):
@@ -74,34 +128,10 @@ class TelegramVerifier:
                 cookies = self.COOKIE
             ).content
 
-            contents.append(InputMediaPhoto(item, caption = str(i + 1)))
+            contents.append(item)
             print("> Obtained item image #" + str(i + 1))
         
         return contents
-
-    async def sendItemImages(
-        self,
-        updater: Updater,
-        text: str,
-        media: list[InputMediaPhoto],
-    ):
-        await updater.bot.sendMediaGroup(
-            chat_id = self.chatId,
-            media = media
-        )
-
-        buttons = [
-            [InlineKeyboardButton("1", callback_data="1")],
-            [InlineKeyboardButton("2", callback_data="2")],
-            [InlineKeyboardButton("3", callback_data="3")],
-            [InlineKeyboardButton("4", callback_data="4")]
-        ]
-        await updater.bot.send_message(
-            chat_id = self.chatId,
-            text = text,
-            reply_markup = InlineKeyboardMarkup(buttons)
-        )
-        print("> Please answer immediately!")
     
     async def onItemClick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
@@ -129,7 +159,10 @@ class TelegramVerifier:
 
         await query.answer()
         await query.edit_message_reply_markup(reply_markup=None)
-        await query.edit_message_text(text = f"🔒 Verification [{query.data}] is {status}")
+        await context.bot.sendMessage(
+            chat_id = self.chatId,
+            text = f"🔒 Verification [{query.data}] is {status}"
+        )
     
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Sends a message with three inline buttons attached."""

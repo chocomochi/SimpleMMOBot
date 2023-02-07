@@ -15,9 +15,11 @@ async def takeSteps(traveller: Traveller, telegramBot: TelegramVerifier, runMode
     while True:
         msToSleep = traveller.takeStep()
         if msToSleep == 0 and runMode == 1 or msToSleep == 0 and runMode == 2:
-            await telegramBot.verify()
-            while telegramBot.isUserCorrect == False:
-                continue
+            isDone = await telegramBot.verify()
+            if isDone:
+                while telegramBot.isUserCorrect == False:
+                    continue
+
             continue
         secondsToSleep = Utils.millisecondsToSeconds(msToSleep)
         additionalHumanizedSeconds = random.uniform(0.4, 1.6)
