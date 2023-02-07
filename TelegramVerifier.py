@@ -1,10 +1,14 @@
 from telegram import *
 from telegram.ext import *
+from telegram.constants import ParseMode
 from dotenv import load_dotenv
 from random import randint
 from PIL import Image, ImageDraw
 from io import BytesIO
 import requests
+import logging
+import traceback
+import html
 import Utils
 import os
 import json
@@ -51,6 +55,7 @@ class TelegramVerifier:
     API_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/api/bot-verification"
     IMAGES_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot/generate_image?uid="
     isUserCorrect: bool = False
+    logger: logging.Logger = None
     itemKeys = []
 
     class CannotVerify(Exception):
@@ -58,14 +63,14 @@ class TelegramVerifier:
 
     def __init__(self, cookie: dict) -> None:
         load_dotenv()
-        self.COOKIE = cookie
-        
         token = os.getenv("bot_token")
+
+        self.COOKIE = cookie
         self.chatId = os.getenv("chat_id")
         self.application = Application.builder().token(token = token).build()
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CallbackQueryHandler(self.onItemClick))
-        self.jobQueue = self.application.job_queue
+        self.application.add_error_handler()
 
     def startPolling(self):
         self.application.run_polling()
@@ -112,6 +117,33 @@ class TelegramVerifier:
         except:
             raise self.CannotVerify("Please verify it manually, ASAP!")
     
+    async def errorHandler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Log the error and send a telegram message to notify the developer."""
+        # Log the error before we do anything else, so we can see it even if something breaks.
+        self.logger.error(msg="Exception while handling an update:", exc_info=context.error)
+
+        # traceback.format_exception returns the usual python message about an exception, but as a
+        # list of strings rather than a single string, so we have to join them together.
+        tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+        tb_string = "".join(tb_list)
+
+        # Build the message with some markup and additional information about what happened.
+        # You might need to add some logic to deal with messages longer than the 4096 character limit.
+        update_str = update.to_dict() if isinstance(update, Update) else str(update)
+        message = (
+            f"An exception was raised while handling an update\n"
+            f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
+            "</pre>\n\n"
+            f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
+            f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
+            f"<pre>{html.escape(tb_string)}</pre>"
+        )
+
+        # Finally, send the message
+        await context.bot.send_message(
+            chat_id=self.chatId, text=message, parse_mode=ParseMode.HTML
+        )
+
     def getItemKeys(self, verificationDetails: str) -> list[str]:
         return Utils.getMultipleStringsInBetween(
             string = verificationDetails,
@@ -135,6 +167,7 @@ class TelegramVerifier:
     
     async def onItemClick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
+        await query.answer()
 
         isSuccess: bool = False
         if "1" == query.data:
@@ -157,13 +190,13 @@ class TelegramVerifier:
         else:
             print("> Verification failed!")
 
-        await query.answer()
         await query.edit_message_reply_markup(reply_markup=None)
         await context.bot.sendMessage(
             chat_id = self.chatId,
             text = f"🔒 Verification [{query.data}] is {status}"
         )
     
+    # Ping function
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Sends a message with three inline buttons attached."""
         keyboard = [

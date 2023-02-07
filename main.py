@@ -5,6 +5,7 @@ import random
 import asyncio
 import threading
 import Utils
+import logging
 import argparse
 
 parser = argparse.ArgumentParser(description = "Traveller")
@@ -35,6 +36,8 @@ def main() -> None:
     if args.type == 1 or args.type == 2:
         traveller = Traveller(CSRF_TOKEN, API_TOKEN, API_ENDPOINT, runMode=args.type)
         telegramBot = TelegramVerifier(traveller.COOKIE)
+        telegramBot.logger = logging.getLogger(__name__)
+        
         travellerThread = threading.Thread(
             target = asyncStepperFunctionWrapper,
             args = (traveller, telegramBot, args.type)
