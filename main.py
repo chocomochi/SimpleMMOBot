@@ -1,3 +1,4 @@
+#!/usr/bin/python
 from Authenticator import Authenticator
 from Traveller import Traveller
 from TelegramVerifier import TelegramVerifier
