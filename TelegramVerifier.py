@@ -12,6 +12,7 @@ import html
 import Utils
 import os
 import json
+import asyncio
 
 
 class CollageCreator:
@@ -105,7 +106,7 @@ class TelegramVerifier:
             ]
 
             print("> Sending the images...")
-            await self.application.updater.bot.sendPhoto(
+            message = await self.application.updater.bot.sendPhoto(
                 chat_id = self.chatId,
                 photo = collagedImages,
                 caption = f"🔍 Find: {objectToFind.strip()}",
@@ -113,9 +114,27 @@ class TelegramVerifier:
             )
             
             print("> Images have been sent! Please answer immediately!")
-            return True
         except:
+            if message.id == None:
+                retries = 3
+                while retries > 0:
+                    message = await self.application.updater.bot.sendPhoto(
+                        chat_id = self.chatId,
+                        photo = collagedImages,
+                        caption = f"🔍 Find: {objectToFind.strip()}",
+                        reply_markup = InlineKeyboardMarkup(buttons)
+                    )
+
+                    if message.id == None:
+                        retries -= 1
+                    else:
+                        return True
+
+                    await asyncio.sleep(2)
+
             raise self.CannotVerify("Please verify it manually, ASAP!")
+        else:
+            return True
     
     async def errorHandler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Log the error and send a telegram message to notify the developer."""

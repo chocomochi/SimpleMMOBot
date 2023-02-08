@@ -6,7 +6,10 @@ from random import randint, uniform
 from Utils import removeHtmlTags
 import enum
 import time
-from WindowsNotifier import WindowsNotifier
+try:
+    from WindowsNotifier import WindowsNotifier
+except:
+    pass
 
 class Traveller:
     stepCount = 0
@@ -59,7 +62,7 @@ class Traveller:
                         duration = 'long',
                         icon = r"F:\dont_touch\pythons\simple-mmo-bot\res\alert.png"
                     )
-                else:
+                elif self.runMode == 3:
                     input("> Please verify asap and press enter here to continue travelling...")
                 
                 return 0

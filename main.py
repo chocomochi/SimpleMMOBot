@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(description = "Traveller")
 parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: windows w/ telegram), (2: phone w/ telegram), (3: plain script, no integrations or whatsoever)")
 args = parser.parse_args()
 
-async def takeSteps(traveller: Traveller, telegramBot: TelegramVerifier, runMode: int):
+async def takeSteps(traveller: Traveller, runMode: int, telegramBot: TelegramVerifier = None):
     while True:
         msToSleep = traveller.takeStep()
         if msToSleep == 0 and runMode == 1 or msToSleep == 0 and runMode == 2:
@@ -26,7 +26,7 @@ async def takeSteps(traveller: Traveller, telegramBot: TelegramVerifier, runMode
         additionalHumanizedSeconds = random.uniform(0.4, 1.6)
         await asyncio.sleep(secondsToSleep + additionalHumanizedSeconds)
 
-def asyncStepperFunctionWrapper(traveller: Traveller, telegramBot: TelegramVerifier, runMode: int):
+def asyncStepperFunctionWrapper(traveller: Traveller, runMode: int, telegramBot: TelegramVerifier = None):
     asyncio.run(takeSteps(traveller, telegramBot, runMode))
 
 def main() -> None:
@@ -40,7 +40,7 @@ def main() -> None:
         
         travellerThread = threading.Thread(
             target = asyncStepperFunctionWrapper,
-            args = (traveller, telegramBot, args.type)
+            args = (traveller, args.type, telegramBot)
         )
         travellerThread.start()
         telegramBot.startPolling()
@@ -48,7 +48,7 @@ def main() -> None:
         traveller = Traveller(CSRF_TOKEN, API_TOKEN, API_ENDPOINT, runMode=args.type)
         travellerThread = threading.Thread(
             target = asyncStepperFunctionWrapper,
-            args = (traveller, telegramBot, args.type)
+            args = (traveller, args.type)
         )
         travellerThread.start()
         travellerThread.join()
