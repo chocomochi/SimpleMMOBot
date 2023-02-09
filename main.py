@@ -2,33 +2,29 @@
 from Authenticator import Authenticator
 from Traveller import Traveller
 from TelegramVerifier import TelegramVerifier
-import random
 import asyncio
-import threading
 import Utils
 import logging
 import argparse
+import nest_asyncio
+import time
+import threading
+
+nest_asyncio.apply()
 
 parser = argparse.ArgumentParser(description = "Traveller")
 parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: windows w/ telegram), (2: phone w/ telegram), (3: plain script, no integrations or whatsoever)")
 args = parser.parse_args()
 
-async def takeSteps(traveller: Traveller, runMode: int, telegramBot: TelegramVerifier = None):
+def takeSteps(traveller: Traveller, runMode: int, telegramVerifierBot: TelegramVerifier = None):
     while True:
         msToSleep = traveller.takeStep()
         if msToSleep == 0 and runMode == 1 or msToSleep == 0 and runMode == 2:
-            isDone = await telegramBot.verify()
-            if isDone:
-                while telegramBot.isUserCorrect == False:
-                    continue
-
+            telegramVerifierBot.run()
             continue
+        
         secondsToSleep = Utils.millisecondsToSeconds(msToSleep)
-        additionalHumanizedSeconds = random.uniform(0.4, 1.6)
-        await asyncio.sleep(secondsToSleep + additionalHumanizedSeconds)
-
-def asyncStepperFunctionWrapper(traveller: Traveller, runMode: int, telegramBot: TelegramVerifier = None):
-    asyncio.run(takeSteps(traveller, runMode, telegramBot))
+        time.sleep(secondsToSleep)
 
 def main() -> None:
     authenticator = Authenticator()
@@ -36,23 +32,11 @@ def main() -> None:
 
     if args.type == 1 or args.type == 2:
         traveller = Traveller(CSRF_TOKEN, API_TOKEN, API_ENDPOINT, runMode=args.type)
-        telegramBot = TelegramVerifier(traveller.COOKIE)
-        telegramBot.logger = logging.getLogger(__name__)
-        
-        travellerThread = threading.Thread(
-            target = asyncStepperFunctionWrapper,
-            args = (traveller, args.type, telegramBot)
-        )
-        travellerThread.start()
-        telegramBot.startPolling()
+        telegramVerifierBot = TelegramVerifier(traveller.COOKIE)
+        telegramVerifierBot.logger = logging.getLogger(__name__)
+        takeSteps(traveller, args.type, telegramVerifierBot=telegramVerifierBot)
     elif args.type == 3:
-        traveller = Traveller(CSRF_TOKEN, API_TOKEN, API_ENDPOINT, runMode=args.type)
-        travellerThread = threading.Thread(
-            target = asyncStepperFunctionWrapper,
-            args = (traveller, args.type)
-        )
-        travellerThread.start()
-        travellerThread.join()
+        takeSteps(traveller, args.type)
     else:
         class NoTypeFoundException(Exception): pass
         raise NoTypeFoundException("Please provide a type number with -t or --type")

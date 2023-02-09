@@ -6,7 +6,6 @@ from random import randint
 from PIL import Image, ImageDraw
 from io import BytesIO
 import requests
-import logging
 import traceback
 import html
 import Utils
@@ -37,7 +36,7 @@ class CollageCreator:
                 height = 50
                 width = 50
 
-            new.paste(image, (height,width))
+            new.paste(image, (width,height))
 
         memory.name = "image.png"
         new.save(
@@ -48,34 +47,41 @@ class CollageCreator:
         )
         memory.seek(0)
         return memory
-        
-        
 
 class TelegramVerifier:
     WEB_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot"
     API_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/api/bot-verification"
     IMAGES_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot/generate_image?uid="
     isUserCorrect: bool = False
-    logger: logging.Logger = None
+    scopeLoop: asyncio.AbstractEventLoop = None
     itemKeys = []
 
-    class CannotVerify(Exception):
-        pass
+    class CannotVerify(Exception): pass
 
     def __init__(self, cookie: dict) -> None:
         load_dotenv()
-        token = os.getenv("bot_token")
 
         self.COOKIE = cookie
         self.chatId = os.getenv("chat_id")
-        self.application = Application.builder().token(token = token).build()
+        self.token = os.getenv("bot_token")
+
+    def run(self):
+        loop = asyncio.get_event_loop()
+
+        if loop.is_closed():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        self.application = Application.builder().token(token = self.token).build()
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CallbackQueryHandler(self.onItemClick))
         self.application.add_error_handler(self.errorHandler)
 
-    def startPolling(self):
+        loop.run_until_complete(self.verify())
+        print("> Please answer immediately!")
         self.application.run_polling()
-    
+        print("> Stopping telegram bot...")
+
     async def verify(self) -> bool:
         retries = 3
         objectToFind: str = None
@@ -84,9 +90,8 @@ class TelegramVerifier:
             try:
                 if retries < 3:
                     print(f"> Retrying [{retries}]")
-                    
+
                 if objectToFind == None:
-                    self.isUserCorrect = False
                     response = requests.get(
                         url = self.WEB_VERIFICATION_ENDPOINT,
                         cookies = self.COOKIE
@@ -102,7 +107,11 @@ class TelegramVerifier:
 
                 self.itemKeys = self.getItemKeys(response.text)
                 self.itemKeys.pop(0)
+                
+                print("> Obtaining images...")
                 itemImages = self.getItemImages()
+
+                print("> Collaging images...")
                 collageCreator = CollageCreator()
                 collagedImages = collageCreator.createCollage(itemImages)
 
@@ -123,10 +132,9 @@ class TelegramVerifier:
             except:
                 retries -= 1
             else:
-                print("> Images have been sent! Please answer immediately!")
-                return True
+                return
                 
-        raise self.CannotVerify("Please verify it manually, ASAP!")
+        # raise self.CannotVerify("Please verify it manually, ASAP!")
     
     async def errorHandler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Log the error and send a telegram message to notify the developer."""
@@ -172,7 +180,6 @@ class TelegramVerifier:
             ).content
 
             contents.append(item)
-            print("> Obtained item image #" + str(i + 1))
         
         return contents
     
@@ -205,7 +212,8 @@ class TelegramVerifier:
             chat_id = self.chatId,
             text = f"🔒 Verification [{query.data}] is {status}"
         )
-        self.isUserCorrect = isSuccess
+        
+        asyncio.get_event_loop().stop()
     
     # Ping function
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -225,12 +233,11 @@ class TelegramVerifier:
     def getVerificationResults(self, itemPosition: int) -> bool:
         x, y = self.humanizeMouseClick()
         humanizedData = {
-            "data": None,
+            "data": self.itemKeys[itemPosition],
             "x": x,
             "y": y
         }
 
-        humanizedData["data"] = self.itemKeys[itemPosition]
         result = requests.post(
             url = self.API_VERIFICATION_ENDPOINT,
             cookies = self.COOKIE,
