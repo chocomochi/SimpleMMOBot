@@ -77,64 +77,56 @@ class TelegramVerifier:
         self.application.run_polling()
     
     async def verify(self) -> bool:
-        self.isUserCorrect = False
-        response = requests.get(
-            url = self.WEB_VERIFICATION_ENDPOINT,
-            cookies = self.COOKIE
-        )
+        retries = 3
+        objectToFind: str = None
 
-        try:
-            objectToFind = Utils.removeHtmlTags(
-                rawHtml = Utils.getStringInBetween(
-                    string = response.text,
-                    delimiter1 = 'Please press on the following item:',
-                    delimiter2 = '</div>'
-                )
-            )
-
-            self.itemKeys = self.getItemKeys(response.text)
-            self.itemKeys.pop(0)
-            itemImages = self.getItemImages()
-            collageCreator = CollageCreator()
-            collagedImages = collageCreator.createCollage(itemImages)
-
-            buttons = [
-                [InlineKeyboardButton("1", callback_data="1")],
-                [InlineKeyboardButton("2", callback_data="2")],
-                [InlineKeyboardButton("3", callback_data="3")],
-                [InlineKeyboardButton("4", callback_data="4")]
-            ]
-
-            print("> Sending the images...")
-            message = await self.application.updater.bot.sendPhoto(
-                chat_id = self.chatId,
-                photo = collagedImages,
-                caption = f"🔍 Find: {objectToFind.strip()}",
-                reply_markup = InlineKeyboardMarkup(buttons)
-            )
-            
-            print("> Images have been sent! Please answer immediately!")
-        except:
-            if message.id == None:
-                retries = 3
-                while retries > 0:
-                    message = await self.application.updater.bot.sendPhoto(
-                        chat_id = self.chatId,
-                        photo = collagedImages,
-                        caption = f"🔍 Find: {objectToFind.strip()}",
-                        reply_markup = InlineKeyboardMarkup(buttons)
+        while retries > 0:
+            try:
+                if retries < 3:
+                    print(f"> Retrying [{retries}]")
+                    
+                if objectToFind == None:
+                    self.isUserCorrect = False
+                    response = requests.get(
+                        url = self.WEB_VERIFICATION_ENDPOINT,
+                        cookies = self.COOKIE
                     )
 
-                    if message.id == None:
-                        retries -= 1
-                    else:
-                        return True
+                    objectToFind = Utils.removeHtmlTags(
+                        rawHtml = Utils.getStringInBetween(
+                            string = response.text,
+                            delimiter1 = 'Please press on the following item:',
+                            delimiter2 = '</div>'
+                        )
+                    )
 
-                    await asyncio.sleep(2)
+                self.itemKeys = self.getItemKeys(response.text)
+                self.itemKeys.pop(0)
+                itemImages = self.getItemImages()
+                collageCreator = CollageCreator()
+                collagedImages = collageCreator.createCollage(itemImages)
 
-            raise self.CannotVerify("Please verify it manually, ASAP!")
-        else:
-            return True
+                buttons = [
+                    [InlineKeyboardButton("1", callback_data="1")],
+                    [InlineKeyboardButton("2", callback_data="2")],
+                    [InlineKeyboardButton("3", callback_data="3")],
+                    [InlineKeyboardButton("4", callback_data="4")]
+                ]
+
+                print("> Sending the images...")
+                await self.application.updater.bot.sendPhoto(
+                    chat_id = self.chatId,
+                    photo = collagedImages,
+                    caption = f"🔍 Find: {objectToFind.strip()}",
+                    reply_markup = InlineKeyboardMarkup(buttons)
+                )
+            except:
+                retries -= 1
+            else:
+                print("> Images have been sent! Please answer immediately!")
+                return True
+                
+        raise self.CannotVerify("Please verify it manually, ASAP!")
     
     async def errorHandler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Log the error and send a telegram message to notify the developer."""

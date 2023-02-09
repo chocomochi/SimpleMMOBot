@@ -28,7 +28,7 @@ async def takeSteps(traveller: Traveller, runMode: int, telegramBot: TelegramVer
         await asyncio.sleep(secondsToSleep + additionalHumanizedSeconds)
 
 def asyncStepperFunctionWrapper(traveller: Traveller, runMode: int, telegramBot: TelegramVerifier = None):
-    asyncio.run(takeSteps(traveller, telegramBot, runMode))
+    asyncio.run(takeSteps(traveller, runMode, telegramBot))
 
 def main() -> None:
     authenticator = Authenticator()
