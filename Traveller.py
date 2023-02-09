@@ -22,6 +22,8 @@ class Traveller:
         Item = 3
         Npc = 4
         Player = 5
+    
+    class UserNoHealth(Exception): pass
 
     def __init__(self, csrfToken: str, apiToken: str, apiEndpoint: str, runMode: int = 1) -> None:
         cookie = CookieParser()
@@ -66,19 +68,30 @@ class Traveller:
                     input("> Please verify asap and press enter here to continue travelling...")
                 
                 return 0
+            
+            isUserOnNewLocation = response.text.count("You have reached") > 0
+            if isUserOnNewLocation:
+                self.stepCount += 1
+                print(f"[STEP #{self.stepCount}] Reached new location!")
+                return 0
 
             stepResult = json.loads(response.text)
             timeToWaitForAnotherStep = stepResult["wait_length"]
 
             stepHeadlineMessage = stepResult["heading"]
-            stepType = self.getStepType(stepResult["step_type"])
             stepMessage = stepResult["text"]
+
+            isUserDead = stepHeadlineMessage == "You're dead."
+            if isUserDead:
+                raise self.UserNoHealth("Can't fight without HP!")
 
             isUserCurrentlyOnAJob = stepMessage == "You cannot travel while you are working!"
             if isUserCurrentlyOnAJob:
                 class UserOnJob(Exception): pass
                 raise UserOnJob("User is on a job!")
 
+            stepType = self.getStepType(stepResult["step_type"])
+            
             currentLevel = stepResult["level"]
             currentExp = stepResult["currentEXP"]
             currentGold = stepResult["currentGold"]
@@ -121,9 +134,9 @@ class Traveller:
             
             print(f"> Step Rewards [gold/exp]: {goldEarned}/{expEarned} | Current [gold/exp/level]: {currentGold}/{currentExp}/{currentLevel}")
 
-            stepCountIsEven = self.stepCount % 2
-            if stepCountIsEven:
-                time.sleep(uniform(1.4, 6.2))
+            shouldHumanizeStepping = self.stepCount % randint(8, 16)
+            if shouldHumanizeStepping:
+                time.sleep(uniform(1.4, 4.2))
 
             return timeToWaitForAnotherStep
     
@@ -219,8 +232,7 @@ class Traveller:
                     isUserDefeated = battleResults["player_hp"] == 0
 
                     if isUserDefeated:
-                        class UserNoHealth(Exception): pass
-                        raise UserNoHealth("Can't fight without HP!")
+                        raise self.UserNoHealth("Can't fight without HP!")
 
                     if isOpponentDefeated:
                         battleRewards = battleResults["result"]
