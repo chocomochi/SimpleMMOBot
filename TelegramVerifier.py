@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from random import randint
 from PIL import Image, ImageDraw
 from io import BytesIO
+from Authenticator import Authenticator
 import requests
 import traceback
 import html
@@ -49,7 +50,7 @@ class CollageCreator:
         return memory
 
 class TelegramVerifier:
-    WEB_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot"
+    WEB_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot?new_page=true"
     API_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/api/bot-verification"
     IMAGES_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot/generate_image?uid="
     isUserCorrect: bool = False
@@ -65,7 +66,7 @@ class TelegramVerifier:
         self.chatId = os.getenv("chat_id")
         self.token = os.getenv("bot_token")
 
-    def run(self):
+    def run(self, authenticator: Authenticator):
         loop = asyncio.get_event_loop()
 
         if loop.is_closed():
@@ -77,12 +78,12 @@ class TelegramVerifier:
         self.application.add_handler(CallbackQueryHandler(self.onItemClick))
         self.application.add_error_handler(self.errorHandler)
 
-        loop.run_until_complete(self.verify())
+        loop.run_until_complete(self.verify(authenticator = authenticator))
         print("> Please answer immediately!")
         self.application.run_polling()
         print("> Stopping telegram bot...")
 
-    async def verify(self) -> bool:
+    async def verify(self, authenticator: Authenticator) -> bool:
         retries = 3
         objectToFind: str = None
 
@@ -92,10 +93,29 @@ class TelegramVerifier:
                     print(f"> Retrying [{retries}]")
 
                 if objectToFind == None:
+                    humanizedHeaders = {
+                        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                        "Host": "web.simple-mmo.com",
+                        "Pragma": "no-cache",
+                        "Referer": "https://web.simple-mmo.com/travel",
+                        "Connection": "keep-alive",
+                        "Sec-Fetch-Dest": "document",
+                        "Sec-Fetch-Mode": "navigate",
+                        "Sec-Fetch-Site": "same-origin",
+                        "Sec-Fetch-User": "?1",
+                        "TE": "trailers",
+                        "Upgrade-Insecure-Requests": "1",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
+                    }
+
                     response = requests.get(
                         url = self.WEB_VERIFICATION_ENDPOINT,
-                        cookies = self.COOKIE
+                        cookies = self.COOKIE,
+                        headers = humanizedHeaders
                     )
+
+                    self.COOKIE = authenticator.generateNewSessionCookie()
+                    authenticator.saveCookie(authenticator.parseCookieDictionary(self.COOKIE))
 
                     objectToFind = Utils.removeHtmlTags(
                         rawHtml = Utils.getStringInBetween(
@@ -232,6 +252,21 @@ class TelegramVerifier:
 
     def getVerificationResults(self, itemPosition: int) -> bool:
         x, y = self.humanizeMouseClick()
+        humanizedHeaders = {
+            "Accept": "*/*",
+            "Host": "web.simple-mmo.com",
+            "Pragma": "no-cache",
+            "Content-Type": "application/json",
+            "Origin": "https://web.simple-mmo.com",
+            "Referer": self.WEB_VERIFICATION_ENDPOINT,
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "TE": "trailers",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
+        }
+
         humanizedData = {
             "data": self.itemKeys[itemPosition],
             "x": x,
@@ -241,7 +276,8 @@ class TelegramVerifier:
         result = requests.post(
             url = self.API_VERIFICATION_ENDPOINT,
             cookies = self.COOKIE,
-            data = humanizedData
+            data = humanizedData,
+            headers = humanizedHeaders
         )
 
         try:

@@ -12,9 +12,12 @@ except:
     pass
 
 class Traveller:
+    WEB_ENDPOINT = "https://web.simple-mmo.com"
     stepCount = 0
     userLevel = None
-    WEB_ENDPOINT = "https://web.simple-mmo.com"
+    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
+    webHost = "web.simple-mmo.com"
+    apiHost = "api.simple-mmo.com"
 
     class StepTypes(enum.Enum):
         Material = 1
@@ -38,6 +41,20 @@ class Traveller:
     def takeStep(self):
         x, y = self.humanizeMouseClick()
 
+        humanizedHeaders = {
+            "Accept": "*/*",
+            "Host": self.apiHost,
+            "Pragma": "no-cache",
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Origin": self.WEB_ENDPOINT,
+            "Referer": self.WEB_ENDPOINT + "/travel",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+            "User-Agent": self.userAgent
+        }
+
         humanizedData = {
             "_token": self.CSRF_TOKEN,
             "api_token": self.API_TOKEN,
@@ -49,7 +66,8 @@ class Traveller:
 
         response = requests.post(
             url = self.API_ENDPOINT,
-            data = humanizedData
+            data = humanizedData,
+            headers = humanizedHeaders
         )
 
         try:
@@ -198,9 +216,25 @@ class Traveller:
         
         isOpponentDefeated = False
         try:
+            humanizedHeaders = {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Host": self.webHost,
+                "Pragma": "no-cache",
+                "Referer": self.WEB_ENDPOINT + "/travel",
+                "Connection": "keep-alive",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-origin",
+                "TE": "trailers",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-User": "?1",
+                "User-Agent": self.userAgent
+            }
+
             response = requests.get(
                 url = actionLink,
-                cookies = self.COOKIE
+                cookies = self.COOKIE,
+                headers = humanizedHeaders
             )
             
             attackApiEndpoint = getStringInBetween(
@@ -213,6 +247,21 @@ class Traveller:
         else:
             while isOpponentDefeated == False:
                 try:
+                    humanizedHeaders = {
+                        "Accept": "*/*",
+                        "Host": self.apiHost,
+                        "Pragma": "no-cache",
+                        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+                        "Origin": self.WEB_ENDPOINT,
+                        "Referer": actionLink,
+                        "Connection": "keep-alive",
+                        "Sec-Fetch-Dest": "empty",
+                        "Sec-Fetch-Mode": "cors",
+                        "Sec-Fetch-Site": "same-site",
+                        "TE": "trailers",
+                        "User-Agent": self.userAgent
+                    }
+
                     humanizedData = {
                         "_token": self.CSRF_TOKEN,
                         "api_token": self.API_TOKEN,
@@ -221,7 +270,8 @@ class Traveller:
 
                     battleResults = requests.post(
                         url = attackApiEndpoint,
-                        data = humanizedData
+                        data = humanizedData,
+                        headers = humanizedHeaders
                     )
 
                     battleResults = json.loads(battleResults.text)
@@ -253,9 +303,25 @@ class Traveller:
         
         isMaterialDoneGathering = False
         try:
+            humanizedHeaders = {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Host": self.webHost,
+                "Pragma": "no-cache",
+                "Referer": self.WEB_ENDPOINT + "/travel",
+                "Connection": "keep-alive",
+                "Sec-Fetch-Dest": "document",
+                "Sec-Fetch-Mode": "navigate",
+                "Sec-Fetch-Site": "same-origin",
+                "TE": "trailers",
+                "Upgrade-Insecure-Requests": "1",
+                "Sec-Fetch-User": "?1",
+                "User-Agent": self.userAgent
+            }
+
             response = requests.get(
                 url = actionLink,
-                cookies = self.COOKIE
+                cookies = self.COOKIE,
+                headers = humanizedHeaders
             )
             
             gatherApiEndpoint = self.WEB_ENDPOINT + "/api/crafting/material/gather/" + getStringInBetween(
@@ -268,11 +334,27 @@ class Traveller:
         else:
             while isMaterialDoneGathering == False:
                 try:
+                    humanizedHeaders = {
+                        "Accept": "application/json",
+                        "Host": self.webHost,
+                        "Pragma": "no-cache",
+                        "Content-Type": "application/json",
+                        "Origin": self.WEB_ENDPOINT,
+                        "Referer": actionLink,
+                        "Connection": "keep-alive",
+                        "Sec-Fetch-Dest": "empty",
+                        "Sec-Fetch-Mode": "cors",
+                        "Sec-Fetch-Site": "same-origin",
+                        "TE": "trailers",
+                        "User-Agent": self.userAgent
+                    }
+
                     humanizedData = {"_token": self.CSRF_TOKEN}
                     gatherResults = requests.post(
                         url = gatherApiEndpoint,
                         cookies = self.COOKIE,
-                        data = humanizedData
+                        data = humanizedData,
+                        headers = humanizedHeaders
                     )
                     
                     gatherResults = json.loads(gatherResults.text)
