@@ -105,7 +105,7 @@ class TelegramVerifier:
                         "Sec-Fetch-User": "?1",
                         "TE": "trailers",
                         "Upgrade-Insecure-Requests": "1",
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
+                        "User-Agent": self.auth.userAgent
                     }
 
                     response = self.auth.get(
@@ -151,7 +151,7 @@ class TelegramVerifier:
             else:
                 return
                 
-        # raise self.CannotVerify("Please verify it manually, ASAP!")
+        raise self.CannotVerify("Please verify it manually, ASAP!")
     
     async def errorHandler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Log the error and send a telegram message to notify the developer."""
@@ -199,7 +199,7 @@ class TelegramVerifier:
             "Sec-Fetch-Mode": "no-cors",
             "Sec-Fetch-Site": "same-origin",
             "TE": "trailers",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
+            "User-Agent": self.auth.userAgent
         }
 
         for i in range(0, 4):
@@ -270,7 +270,8 @@ class TelegramVerifier:
 
         result = self.auth.post(
             url = self.API_VERIFICATION_ENDPOINT,
-            data = humanizedData
+            data = humanizedData,
+            headers = { "User-Agent": self.auth.userAgent }
         )
 
         try:

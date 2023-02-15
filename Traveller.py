@@ -23,7 +23,6 @@ class Traveller:
         "generateNpc": API_ENDPOINT + "/api/battlearena/generate",
         "character": WEB_ENDPOINT + "/user/character"
     }
-    userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
     webHost = "web.simple-mmo.com"
     apiHost = "api.simple-mmo.com"
     
@@ -66,7 +65,7 @@ class Traveller:
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
-            "User-Agent": self.userAgent
+            "User-Agent": self.auth.userAgent
         }
 
         humanizedData = {
@@ -195,7 +194,7 @@ class Traveller:
             "TE": "trailers",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-User": "?1",
-            "User-Agent": self.userAgent
+            "User-Agent": self.auth.userAgent
         }
         
         response = self.auth.get(
@@ -217,7 +216,7 @@ class Traveller:
             "Sec-Fetch-Site": "same-origin",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-User": "?1",
-            "User-Agent": self.userAgent
+            "User-Agent": self.auth.userAgent
         }
 
         questActionLinkResponse = self.auth.get(
@@ -249,7 +248,7 @@ class Traveller:
                 "Sec-Fetch-Mode": "cors",
                 "Sec-Fetch-Site": "same-origin",
                 "TE": "trailers",
-                "User-Agent": self.userAgent
+                "User-Agent": self.auth.userAgent
             }
 
             x, y = self.humanizeMouseClick()
@@ -308,7 +307,7 @@ class Traveller:
             "TE": "trailers",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-User": "?1",
-            "User-Agent": self.userAgent
+            "User-Agent": self.auth.userAgent
         }
         
         response = self.auth.get(
@@ -354,7 +353,7 @@ class Traveller:
             "TE": "trailers",
             "Upgrade-Insecure-Requests": "1",
             "Sec-Fetch-User": "?1",
-            "User-Agent": self.userAgent
+            "User-Agent": self.auth.userAgent
         }
         
 
@@ -385,7 +384,10 @@ class Traveller:
         
         skillUpgradeResponse = self.auth.post(
             url = self.WEB_ENDPOINT + "/api/user/upgrade/" + skill,
-            data = data
+            data = data,
+            headers = {
+                "User-Agent": self.auth.userAgent
+            }
         )
 
         skillUpgradeResponseInJson = json.loads(skillUpgradeResponse.text)
@@ -417,7 +419,7 @@ class Traveller:
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
-            "User-Agent": self.userAgent
+            "User-Agent": self.auth.userAgent
         }
 
         data = {
@@ -532,7 +534,7 @@ class Traveller:
                 "TE": "trailers",
                 "Upgrade-Insecure-Requests": "1",
                 "Sec-Fetch-User": "?1",
-                "User-Agent": self.userAgent
+                "User-Agent": self.auth.userAgent
             }
 
             response = self.auth.get(
@@ -562,7 +564,7 @@ class Traveller:
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "same-site",
                         "TE": "trailers",
-                        "User-Agent": self.userAgent
+                        "User-Agent": self.auth.userAgent
                     }
 
                     humanizedData = {
@@ -620,7 +622,7 @@ class Traveller:
                 "TE": "trailers",
                 "Upgrade-Insecure-Requests": "1",
                 "Sec-Fetch-User": "?1",
-                "User-Agent": self.userAgent
+                "User-Agent": self.auth.userAgent
             }
 
             response = self.auth.get(
@@ -650,7 +652,7 @@ class Traveller:
                         "Sec-Fetch-Mode": "cors",
                         "Sec-Fetch-Site": "same-origin",
                         "TE": "trailers",
-                        "User-Agent": self.userAgent
+                        "User-Agent": self.auth.userAgent
                     }
 
                     humanizedData = {"_token": self.auth.CSRF_TOKEN}

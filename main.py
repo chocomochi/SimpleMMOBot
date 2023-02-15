@@ -1,14 +1,12 @@
 #!/usr/bin/python
-from Authenticator import Authenticator, RequestWithSession
+from Authenticator import Authenticator
 from Traveller import Traveller
 from TelegramVerifier import TelegramVerifier
-import asyncio
 import Utils
 import logging
 import argparse
 import nest_asyncio
 import time
-import threading
 
 nest_asyncio.apply()
 
