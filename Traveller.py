@@ -235,7 +235,7 @@ class Traveller:
         if isUserOutOfEnergy:
             return randint(4000, 5000) # Random milliseconds
 
-        print(f"> Doing quests with {currentEnergy}/{highestEnergy} energy...")
+        print(f"[QUEST] Energy: {currentEnergy}/{highestEnergy}")
         while currentEnergy > 0:
             humanizedHeaders = {
                 "Accept": "*/*",
@@ -322,7 +322,7 @@ class Traveller:
         if isUserOutOfEnergy:
             return randint(4000, 5000) # Random milliseconds
         
-        print(f"> Doing arena with {currentEnergy}/{highestEnergy} energy...")
+        print(f"[ARENA] Energy: {currentEnergy}/{highestEnergy}")
         while currentEnergy > 0:
             npcInfo = self.generateNpc()
             if not npcInfo:
@@ -369,7 +369,7 @@ class Traveller:
         if isRemainingSkillPointsEmpty:
             return
 
-        print(f"> Upgrading skills [{remainingSkillPoints} SP remaining]...")
+        print(f"[SKILL UPGRADE] {remainingSkillPoints} SP remaining")
 
         data = {
             "_token": self.auth.CSRF_TOKEN,
