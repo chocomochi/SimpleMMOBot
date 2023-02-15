@@ -1,4 +1,5 @@
 import requests
+import requests.utils
 import dotenv
 import os
 from http.cookies import SimpleCookie
@@ -7,14 +8,6 @@ import random
 import numpy
 
 class CookieParser:
-    COOKIE = None
-
-    def __init__(self) -> None:
-        dotenv.load_dotenv()
-
-        rawCookieData = os.getenv("cookie")
-        self.COOKIE = self.parseCookieString(rawCookieData = rawCookieData)
-    
     def parseCookieString(self, rawCookieData: str) -> dict:
         cookieData = SimpleCookie()
         cookieData.load(rawCookieData)
@@ -29,8 +22,32 @@ class CookieParser:
         envFile = dotenv.find_dotenv()
         dotenv.set_key(envFile, "cookie", os.environ["cookie"])
 
+class RequestWithSession:
+    session: requests.Session = None
 
-class Authenticator(CookieParser):
+    def post(
+        self,
+        url,
+        data = None,
+        headers = None
+    ) -> requests.Response:
+        return self.session.post(
+            url = url,
+            data = data,
+            headers = headers
+        )
+    
+    def get(
+        self,
+        url,
+        headers = None
+    ) -> requests.Response:
+        return self.session.get(
+            url = url,
+            headers = headers
+        )
+
+class Authenticator(CookieParser, RequestWithSession):
     MAIN_WEB_ENDPOINT = "https://web.simple-mmo.com"
     WEB_ENDPOINTS = {
         "travel": MAIN_WEB_ENDPOINT + "/travel",
@@ -38,6 +55,20 @@ class Authenticator(CookieParser):
     }
     userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
     host = "web.simple-mmo.com"
+
+    session: requests.Session = None
+
+    CSRF_TOKEN: str = None
+    API_TOKEN: str = None
+    API_ENDPOINT: str = None
+    COOKIE: dict = None
+
+    def __init__(self) -> None:
+        dotenv.load_dotenv()
+        self.session = requests.Session()
+
+        rawCookieData = os.getenv("cookie")
+        self.COOKIE = self.parseCookieString(rawCookieData = rawCookieData)
     
     def getLoginCredentials(self) -> tuple[str, str, str]:
         self.generateNewSessionCookie()
@@ -55,19 +86,18 @@ class Authenticator(CookieParser):
             "User-Agent": self.userAgent
         }
 
-        response = requests.get(
+        response = self.get(
             url = self.WEB_ENDPOINTS["travel"],
-            cookies = self.COOKIE,
             headers = humanizedHeaders
         )
 
-        csrfToken = self.getCSRFToken(response.text)
-        apiToken = self.getApiToken(response.text)
-        travelApiEndpoint = self.getTravelApiEndpoint(response.text)
-
-        return (csrfToken, apiToken, travelApiEndpoint)
+        self.CSRF_TOKEN = self.getCSRFToken(response.text)
+        self.API_TOKEN = self.getApiToken(response.text)
+        self.API_ENDPOINT = self.getTravelApiEndpoint(response.text)
     
     def generateNewSessionCookie(self) -> dict:
+        self.session.cookies = requests.utils.cookiejar_from_dict(self.COOKIE)
+
         humanizedHeaders = {
             "Accept": "*/*",
             "Host": self.host,
@@ -88,22 +118,33 @@ class Authenticator(CookieParser):
             "data": self.generateHash()
         }
 
-        response = requests.post(
+        self.post(
             url = self.WEB_ENDPOINTS["session"],
-            cookies = self.COOKIE,
             data = humanizedData,
             headers = humanizedHeaders
         )
+    
+    def post(self, url, data=None, headers=None) -> requests.Response:
+        response = super().post(url, data, headers)
+        try :
+            self.COOKIE["XSRF-TOKEN"] = response.cookies["XSRF-TOKEN"]
+            self.COOKIE["laravelsession"] = response.cookies["laravelsession"]
 
-        newCookie = self.COOKIE
-        newCookie["XSRF-TOKEN"] = response.cookies["XSRF-TOKEN"]
-        newCookie["laravelsession"] = response.cookies["laravelsession"]
+            newCookieInString = self.parseCookieDictionary(cookieData = self.COOKIE)
+            self.saveCookie(newCookieInString)
+        finally:
+            return response
+    
+    def get(self, url, headers=None) -> requests.Response:
+        response = super().get(url, headers)
+        try :
+            self.COOKIE["XSRF-TOKEN"] = response.cookies["XSRF-TOKEN"]
+            self.COOKIE["laravelsession"] = response.cookies["laravelsession"]
 
-        newCookieInString = self.parseCookieDictionary(cookieData = newCookie)
-        self.saveCookie(newCookieInString)
-
-        self.COOKIE = newCookie
-        return newCookie
+            newCookieInString = self.parseCookieDictionary(cookieData = self.COOKIE)
+            self.saveCookie(newCookieInString)
+        finally:
+            return response
         
     def generateHash(self) -> str:
         newHash = f"{random.random():.17f}"[2:]
