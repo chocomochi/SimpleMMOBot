@@ -2,7 +2,6 @@ from Authenticator import Authenticator
 from random import randint, uniform
 from Utils import removeHtmlTags, getStringInBetween
 import time
-import requests
 import json
 import enum
 import time
@@ -93,7 +92,7 @@ class Traveller:
                         title = "❗❗ VERIFICATION ALERT ❗❗",
                         message = "Please verify as soon as possible!",
                         duration = 'long',
-                        icon = r"F:\dont_touch\pythons\simple-mmo-bot\res\alert.png"
+                        icon = r".\res\alert.png"
                     )
                 elif self.runMode == 3:
                     input("> Please verify asap and press enter here to continue travelling...")
@@ -133,7 +132,8 @@ class Traveller:
             currentLevel = stepResult["level"]
             currentExp = stepResult["currentEXP"]
             currentGold = stepResult["currentGold"]
-            if self.userLevel != None and currentLevel > self.userLevel:
+            didUserLevelledUp = self.userLevel != None and currentLevel > self.userLevel
+            if didUserLevelledUp:
                 print(f"> User levelled up! Level: {currentLevel}")
             
             self.userLevel = currentLevel

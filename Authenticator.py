@@ -3,9 +3,8 @@ import requests.utils
 import dotenv
 import os
 from http.cookies import SimpleCookie
-from Utils import getStringInBetween
+from Utils import getStringInBetween, int2base
 import random
-import numpy
 
 class CookieParser:
     def parseCookieString(self, rawCookieData: str) -> dict:
@@ -147,10 +146,12 @@ class Authenticator(CookieParser, RequestWithSession):
         
     def generateHash(self) -> str:
         newHash = f"{random.random():.17f}"[2:]
+        newHash = int2base(int(newHash), 20)
+
         isOver13 = len(newHash) > 13
         if isOver13:
             newHash = newHash[1:]
-        newHash = numpy.base_repr(int(newHash, 20))
+            
         return newHash.lower()
 
     def getCSRFToken(self, loginResponse: str):

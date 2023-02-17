@@ -1,4 +1,5 @@
 import re
+import string
 
 HTML_PATTERN = re.compile('<.*?>')
 
@@ -25,4 +26,34 @@ def getMultipleStringsInBetween(string: str, delimiter1: str, delimiter2: str) -
             results.append(parsedOccurence)
     finally:
         return results
+
+def int2base(x: int, base: int) -> str:
+    """
+    Returns a string representation of a given number
+    based on a given base system
+
+    from: https://stackoverflow.com/a/2267446/19371763
+    """
+    digs = string.digits + string.ascii_letters
+
+    if x < 0:
+        sign = -1
+    elif x == 0:
+        return digs[0]
+    else:
+        sign = 1
+
+    x *= sign
+    digits = []
+
+    while x:
+        digits.append(digs[x % base])
+        x = x // base
+
+    if sign < 0:
+        digits.append('-')
+
+    digits.reverse()
+
+    return ''.join(digits)
 

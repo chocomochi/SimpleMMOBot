@@ -6,7 +6,6 @@ from random import randint
 from PIL import Image, ImageDraw
 from io import BytesIO
 from Authenticator import Authenticator
-import requests
 import traceback
 import html
 import Utils
