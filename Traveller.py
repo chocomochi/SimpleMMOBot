@@ -1,6 +1,6 @@
 from Authenticator import Authenticator
 from random import randint, uniform
-from Utils import removeHtmlTags, getStringInBetween
+from Utils import *
 import time
 import json
 import enum
@@ -25,9 +25,11 @@ class Traveller:
     webHost = "web.simple-mmo.com"
     apiHost = "api.simple-mmo.com"
     
-    stepCount = 0
-    userLevel = None
-    energyTimer = 0
+    userId: str = None
+    guildId: str = None
+    stepCount: int = 0
+    userLevel: int = 0
+    energyTimer: int = 0
 
     class StepTypes(enum.Enum):
         Material = 1
@@ -49,6 +51,10 @@ class Traveller:
         self.verifyCallback = verifyCallback
         if runMode == 1:
             self.WINDOWS_NOTIFIER = WindowsNotifier(tag = "SimpleMMO")
+        
+        self.getUserId()
+        self.getGuildId()
+        self.getDailyStepCount()
     
     def takeStep(self):
         x, y = self.humanizeMouseClick()
@@ -132,9 +138,9 @@ class Traveller:
             currentLevel = stepResult["level"]
             currentExp = stepResult["currentEXP"]
             currentGold = stepResult["currentGold"]
-            didUserLevelledUp = self.userLevel != None and currentLevel > self.userLevel
+            didUserLevelledUp = self.userLevel > 0 and currentLevel > self.userLevel
             if didUserLevelledUp:
-                print(f"> User levelled up! Level: {currentLevel}")
+                print(f"=======!! [LEVEL UP -> {currentLevel}] !!=======")
             
             self.userLevel = currentLevel
             goldEarned = stepResult["gold_amount"]
@@ -677,6 +683,97 @@ class Traveller:
                         
                     humanizedSeconds = randint(1, 5)
                     time.sleep(humanizedSeconds)
+
+    def getUserId(self):
+        humanizedHeaders = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Host": self.webHost,
+            "Pragma": "no-cache",
+            "Referer": self.WEB_ENDPOINT + "/travel",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "TE": "trailers",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-User": "?1",
+            "User-Agent": self.auth.userAgent
+        }
+        
+        response = self.auth.get(
+            url = self.ENDPOINTS["character"],
+            headers = humanizedHeaders
+        )
+
+        try:
+            self.userId = getStringInBetween(response.text, "/user/view/", '"')
+        except:
+            class CannotFindUserId(Exception): pass
+            raise CannotFindUserId("No UID Found!")
+
+    def getGuildId(self):
+        humanizedHeaders = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Host": self.webHost,
+            "Pragma": "no-cache",
+            "Referer": self.ENDPOINTS["character"],
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "TE": "trailers",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-User": "?1",
+            "User-Agent": self.auth.userAgent
+        }
+        
+        response = self.auth.get(
+            url = self.WEB_ENDPOINT + "/user/view/" + self.userId,
+            headers = humanizedHeaders
+        )
+
+        try:
+            self.guildId = getStringInBetween(response.text, "/guilds/view/", '?')
+        except:
+            class CannotFindGuildId(Exception): pass
+            raise CannotFindGuildId("No Guild ID Found!")
+
+    def getDailyStepCount(self):
+        humanizedHeaders = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Host": self.webHost,
+            "Pragma": "no-cache",
+            "Referer": self.WEB_ENDPOINT + "/leaderboards?guild=2378&new_page=true",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "same-origin",
+            "TE": "trailers",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-User": "?1",
+            "User-Agent": self.auth.userAgent
+        }
+        
+        response = self.auth.get(
+            url = self.WEB_ENDPOINT + f"/leaderboards/view/steps/daily?new_page=true&guild={self.guildId}&tier=all",
+            headers = humanizedHeaders
+        )
+
+        try:
+            stringsFound = getMultipleStringsInBetween(response.text, "/user/view/967216\">", " steps")
+            for string in stringsFound:
+                try:
+                    if string.count("Loading...") > 0:
+                        continue
+
+                    extracted = getStringInBetween(string, "/user/view/967216'>", " steps")
+                    extracted = getStringInBetween(extracted + " steps", "</td>", " steps")
+                    self.stepCount = int(removeHtmlTags(extracted))
+                    break
+                except:
+                    continue
+        except:
+            self.stepCount = 0
 
     def humanizeMouseClick(self):
         xPosition = randint(291, 389)
