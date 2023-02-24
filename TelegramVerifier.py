@@ -132,10 +132,10 @@ class TelegramVerifier:
                 collagedImages = collageCreator.createCollage(itemImages)
 
                 buttons = [
-                    [InlineKeyboardButton("1", callback_data="1")],
-                    [InlineKeyboardButton("2", callback_data="2")],
-                    [InlineKeyboardButton("3", callback_data="3")],
-                    [InlineKeyboardButton("4", callback_data="4")]
+                    [InlineKeyboardButton("1", callback_data="0")],
+                    [InlineKeyboardButton("2", callback_data="1")],
+                    [InlineKeyboardButton("3", callback_data="2")],
+                    [InlineKeyboardButton("4", callback_data="3")]
                 ]
 
                 print("> Sending the images...")
@@ -215,29 +215,9 @@ class TelegramVerifier:
     async def onItemClick(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         query = update.callback_query
         await query.answer()
-
-        if self.isUserCorrect:
-            try:
-                await query.edit_message_reply_markup(reply_markup=None)
-                await context.bot.sendMessage(
-                    chat_id = self.chatId,
-                    text = f"🔒 Verification [{query.data}] is {status}"
-                )
-            finally:
-                asyncio.get_event_loop().stop()
-                return
-
-        if "1" == query.data:
-            self.isUserCorrect = self.getVerificationResults(itemPosition=0)
-
-        elif "2" == query.data:
-            self.isUserCorrect = self.getVerificationResults(itemPosition=1)
-
-        elif "3" == query.data:
-            self.isUserCorrect = self.getVerificationResults(itemPosition=2)
-
-        elif "4" == query.data:
-            self.isUserCorrect = self.getVerificationResults(itemPosition=3)
+        
+        item = int(query.data)
+        self.isUserCorrect = self.getVerificationResults(itemPosition = item)
         
         status = "incorrect ❗"
         if self.isUserCorrect:
@@ -256,20 +236,9 @@ class TelegramVerifier:
             asyncio.get_event_loop().stop()
             return
     
-    # Ping function
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Sends a message with three inline buttons attached."""
-        keyboard = [
-            [
-                InlineKeyboardButton("Option 1", callback_data="Testing 1"),
-                InlineKeyboardButton("Option 2", callback_data="Testing 2"),
-            ],
-            [InlineKeyboardButton("Option 3", callback_data="Testing 3")],
-        ]
-
-        reply_markup = InlineKeyboardMarkup(keyboard)
-
-        await update.message.reply_text("Please choose:", reply_markup=reply_markup)
+        """A ping function to send a dummy message"""
+        await update.message.reply_text("Hi! I'm a bot!")
 
     def getVerificationResults(self, itemPosition: int) -> bool:
         x, y = self.humanizeMouseClick()
