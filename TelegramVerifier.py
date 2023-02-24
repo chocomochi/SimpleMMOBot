@@ -90,7 +90,8 @@ class TelegramVerifier:
             try:
                 if retries < 3:
                     print(f"> Retrying [{retries}]")
-
+                
+                self.isUserCorrect = False
                 if objectToFind == None:
                     humanizedHeaders = {
                         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -215,33 +216,45 @@ class TelegramVerifier:
         query = update.callback_query
         await query.answer()
 
-        isSuccess: bool = False
+        if self.isUserCorrect:
+            try:
+                await query.edit_message_reply_markup(reply_markup=None)
+                await context.bot.sendMessage(
+                    chat_id = self.chatId,
+                    text = f"🔒 Verification [{query.data}] is {status}"
+                )
+            finally:
+                asyncio.get_event_loop().stop()
+                return
+
         if "1" == query.data:
-            isSuccess = self.getVerificationResults(itemPosition=0)
+            self.isUserCorrect = self.getVerificationResults(itemPosition=0)
 
         elif "2" == query.data:
-            isSuccess = self.getVerificationResults(itemPosition=1)
+            self.isUserCorrect = self.getVerificationResults(itemPosition=1)
 
         elif "3" == query.data:
-            isSuccess = self.getVerificationResults(itemPosition=2)
+            self.isUserCorrect = self.getVerificationResults(itemPosition=2)
 
         elif "4" == query.data:
-            isSuccess = self.getVerificationResults(itemPosition=3)
+            self.isUserCorrect = self.getVerificationResults(itemPosition=3)
         
         status = "incorrect ❗"
-        if isSuccess:
+        if self.isUserCorrect:
             print("> Verification successful!")
             status = "correct ✔️"
         else:
             print("> Verification failed!")
 
-        await query.edit_message_reply_markup(reply_markup=None)
-        await context.bot.sendMessage(
-            chat_id = self.chatId,
-            text = f"🔒 Verification [{query.data}] is {status}"
-        )
-        
-        asyncio.get_event_loop().stop()
+        try:
+            await query.edit_message_reply_markup(reply_markup=None)
+            await context.bot.sendMessage(
+                chat_id = self.chatId,
+                text = f"🔒 Verification [{query.data}] is {status}"
+            )
+        finally:
+            asyncio.get_event_loop().stop()
+            return
     
     # Ping function
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
