@@ -2,16 +2,16 @@
 from Authenticator import Authenticator
 from Traveller import Traveller
 from TelegramVerifier import TelegramVerifier
+from requests import ConnectionError, Timeout
 import Utils
 import logging
 import argparse
-import nest_asyncio
 import time
+import multiprocessing
 
-nest_asyncio.apply()
-
+RECONNECTION_TIME_INTERVAL = 4
 parser = argparse.ArgumentParser(description = "Traveller")
-parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: windows w/ telegram), (2: phone w/ telegram), (3: plain script, no integrations or whatsoever)")
+parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: w/ telegram), (2: w/o telegram)")
 args = parser.parse_args()
 
 def takeSteps(traveller: Traveller):
@@ -29,28 +29,63 @@ def takeSteps(traveller: Traveller):
         secondsToSleep = Utils.millisecondsToSeconds(msToSleep)
         time.sleep(secondsToSleep)
 
+def animateLoading(message = "Loading..."):
+    characters = ["⢿", "⣻", "⣽", "⣾", "⣷", "⣯", "⣟", "⡿"]
+    idx = 0
+    while True:
+        print(f"\r> {characters[idx % len(characters)]} {message}", end="", flush = True)
+        idx += 1
+        time.sleep(0.1)
+
 def main() -> None:
-    authenticator = Authenticator()
-    authenticator.getLoginCredentials()
-    
-    if args.type == 1 or args.type == 2:
-        telegramVerifierBot = TelegramVerifier(authenticator = authenticator)
-        telegramVerifierBot.logger = logging.getLogger(__name__)
-        traveller = Traveller(
-            authenticator = authenticator,
-            verifyCallback = telegramVerifierBot.run,
-            runMode = args.type
+    while True:
+        try:
+            authenticator = Authenticator()
+            authenticator.getLoginCredentials()
+            
+            if args.type == 1 or args.type == 2:
+                telegramVerifierBot = TelegramVerifier(authenticator = authenticator)
+                telegramVerifierBot.logger = logging.getLogger(__name__)
+                traveller = Traveller(
+                    authenticator = authenticator,
+                    verifyCallback = telegramVerifierBot.run,
+                    runMode = args.type
+                )
+            elif args.type == 3:
+                traveller = Traveller(
+                    authenticator = authenticator,
+                    runMode = args.type
+                )
+            else:
+                class NoTypeFoundException(Exception): pass
+                raise NoTypeFoundException("Please provide a type number with -t or --type")
+            
+            takeSteps(traveller)
+        except (KeyboardInterrupt, SystemExit):
+            print(f"> Exiting...")
+            break
+        except (ConnectionError, Timeout):
+            print(f"=======!! [ERR: No Internet Connection] !!=======")
+        except Exception as e:
+            print(f"=======!! [ERR: Unknown error] !!=======")
+            print(f"> Error details: {str(e)}")
+            break
+        
+        p = multiprocessing.Process(
+            target = animateLoading,
+            args = ("Waiting for internet connection...",),
+            daemon = True
         )
-    elif args.type == 3:
-        traveller = Traveller(
-            authenticator = authenticator,
-            runMode = args.type
-        )
-    else:
-        class NoTypeFoundException(Exception): pass
-        raise NoTypeFoundException("Please provide a type number with -t or --type")
-    
-    takeSteps(traveller)
+        p.start()
+
+        while not Utils.isConnectedToInternet():
+            time.sleep(RECONNECTION_TIME_INTERVAL)
+
+        if p.is_alive():
+            p.terminate()
+
+        print("\n> Internet resumed!")
+        time.sleep(2)
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,6 @@
 import re
 import string
+import requests
 
 HTML_PATTERN = re.compile('<.*?>')
 
@@ -57,3 +58,9 @@ def int2base(x: int, base: int) -> str:
 
     return ''.join(digits)
 
+def isConnectedToInternet(url: str = "http://www.google.com", timeout: int = 5) -> bool:
+    try:
+        requests.get(url, timeout=timeout)
+        return True
+    except (requests.ConnectionError, requests.Timeout):
+        return False

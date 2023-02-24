@@ -6,10 +6,6 @@ import json
 import enum
 import time
 import typing
-try:
-    from WindowsNotifier import WindowsNotifier
-except:
-    pass
 
 class Traveller:
     WEB_ENDPOINT = "https://web.simple-mmo.com"
@@ -49,12 +45,13 @@ class Traveller:
         self.runMode = runMode
         self.auth = authenticator
         self.verifyCallback = verifyCallback
-        if runMode == 1:
-            self.WINDOWS_NOTIFIER = WindowsNotifier(tag = "SimpleMMO")
-        
+
         self.getUserId()
         self.getGuildId()
         self.getDailyStepCount()
+        print(f"[USER ID] {self.userId}")
+        print(f"[GUILD ID] {self.guildId}")
+        print(f"[STEPS] Total Daily: {self.stepCount}")
     
     def takeStep(self):
         x, y = self.humanizeMouseClick()
@@ -93,14 +90,8 @@ class Traveller:
             if shouldPerformVerification:
                 self.stepCount += 1
                 print(f"[STEP #{self.stepCount}] ALERT: Perform Verification!")
-                if self.runMode == 1:
-                    self.WINDOWS_NOTIFIER.showSnackbar(
-                        title = "❗❗ VERIFICATION ALERT ❗❗",
-                        message = "Please verify as soon as possible!",
-                        duration = 'long',
-                        icon = r".\res\alert.png"
-                    )
-                elif self.runMode == 3:
+                
+                if self.runMode == 3:
                     input("> Please verify asap and press enter here to continue travelling...")
                 
                 if self.runMode != 3:
@@ -180,7 +171,7 @@ class Traveller:
 
             shouldHumanizeStepping = self.stepCount % randint(8, 16)
             if shouldHumanizeStepping:
-                time.sleep(uniform(1.4, 4.2))
+                time.sleep(uniform(1.0, 2.4))
 
             return timeToWaitForAnotherStep
     
@@ -265,38 +256,34 @@ class Traveller:
                 "s": 0
             }
 
-            try:
-                questResponse = self.auth.post(
-                    url = questApiLink,
-                    headers = humanizedHeaders,
-                    data = humanizedData
-                )
+            questResponse = self.auth.post(
+                url = questApiLink,
+                headers = humanizedHeaders,
+                data = humanizedData
+            )
 
-                shouldVerify = questResponse.text.count("Press here to verify") > 0
-                if shouldVerify:
-                    self.startVerification()
-                    continue
+            shouldVerify = questResponse.text.count("Press here to verify") > 0
+            if shouldVerify:
+                self.startVerification()
+                continue
 
-                questResponseOnJson = json.loads(questResponse.text)
-                isUserOutOfEnergy = questResponseOnJson["resultText"] == "You have no more quest points."
-                if isUserOutOfEnergy:
-                    break
+            questResponseOnJson = json.loads(questResponse.text)
+            isUserOutOfEnergy = questResponseOnJson["resultText"] == "You have no more quest points."
+            if isUserOutOfEnergy:
+                break
 
-                isUserFailed = questResponseOnJson["fail"] == True
-                status = questResponseOnJson["status"]
-                result = questResponseOnJson["resultText"]
-                if isUserFailed:
-                    print(f"> Failed Quest Point #{currentEnergy}/{highestEnergy}: {result}")
-                else:
-                    goldEarned = questResponseOnJson["gold"]
-                    expEarned = questResponseOnJson["exp"]
-                    print(f"> Quest Point #{currentEnergy}/{highestEnergy}: {status} -> {goldEarned} gold and {expEarned} exp")
+            isUserFailed = questResponseOnJson["fail"] == True
+            status = questResponseOnJson["status"]
+            result = questResponseOnJson["resultText"]
+            if isUserFailed:
+                print(f"> Failed Quest Point #{currentEnergy}/{highestEnergy}: {result}")
+            else:
+                goldEarned = questResponseOnJson["gold"]
+                expEarned = questResponseOnJson["exp"]
+                print(f"> Quest Point #{currentEnergy}/{highestEnergy}: {status} -> {goldEarned} gold and {expEarned} exp")
 
-                currentEnergy = questResponseOnJson["quest_points"]
-                time.sleep(randint(3, 6))
-            except:
-                print("> Error quest! ====> " + questResponse.text)
-                currentEnergy -= 1
+            currentEnergy = questResponseOnJson["quest_points"]
+            time.sleep(uniform(1.0, 2.0))
 
         return randint(4000, 5000) # Random milliseconds
     
@@ -608,7 +595,7 @@ class Traveller:
                         
                         print(f"> You've won! Rewards: {battleMessage}")
                     
-                    humanizedSeconds = randint(1, 5)
+                    humanizedSeconds = uniform(1.0, 2.0)
                     time.sleep(humanizedSeconds)
 
     def obtainMaterials(self, actionLink: str):
@@ -681,7 +668,7 @@ class Traveller:
                     else:
                         print(f"> Gathering! Rewards: {expGained} EXP | {craftingExpGained} Crafting EXP")
                         
-                    humanizedSeconds = randint(1, 5)
+                    humanizedSeconds = randint(1.0, 2.0)
                     time.sleep(humanizedSeconds)
 
     def getUserId(self):
@@ -768,7 +755,7 @@ class Traveller:
 
                     extracted = getStringInBetween(string, "/user/view/967216'>", " steps")
                     extracted = getStringInBetween(extracted + " steps", "</td>", " steps")
-                    self.stepCount = int(removeHtmlTags(extracted))
+                    self.stepCount = int(removeHtmlTags(extracted.replace(",", "")))
                     break
                 except:
                     continue

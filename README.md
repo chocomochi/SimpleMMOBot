@@ -8,9 +8,8 @@ A type *(int)* must be provided in order for the script to run. The type serves 
 
 Types | Description |
 --- | --- |
-1 | Windows w/ Telegram integration
-2 | Android (via Termux) w/ Telegram intergration
-3 | Just the plain script without any integrations (used on any environment/devices)
+1 | w/ Telegram integration
+2 | w/o Telegram integration
 
 ### Guide to installation 
 * Download/clone this repository to your environment and install the requirements
