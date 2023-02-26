@@ -86,7 +86,6 @@ def main() -> None:
             p.terminate()
 
         print("\n> Internet resumed!")
-        time.sleep(2)
 
 if __name__ == "__main__":
     main()

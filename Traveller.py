@@ -784,4 +784,4 @@ class Traveller:
         return round(time.time())
 
     def resetEnergyTimer(self):
-        self.energyTimer = self.getTimeInSeconds() + 350 # Add 5.5 minutes
+        self.energyTimer = self.getTimeInSeconds() + randint(300, 1050) # Add 5.5 minutes
