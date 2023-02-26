@@ -8,22 +8,11 @@ import time
 import typing
 
 class Traveller:
-    WEB_ENDPOINT = "https://web.simple-mmo.com"
-    API_ENDPOINT = "https://api.simple-mmo.com"
-    ENDPOINTS = {
-        "quests": WEB_ENDPOINT + "/quests/viewall",
-        "travel": WEB_ENDPOINT + "/travel",
-        "arena": WEB_ENDPOINT + "/battle/arena",
-        "arenaMenu": WEB_ENDPOINT + "/battle/menu",
-        "generateNpc": API_ENDPOINT + "/api/battlearena/generate",
-        "character": WEB_ENDPOINT + "/user/character"
-    }
-    webHost = "web.simple-mmo.com"
-    apiHost = "api.simple-mmo.com"
+    auth: Authenticator = None
     
     userId: str = None
     guildId: str = None
-    stepCount: int = 0
+    stepCount: int = -1
     userLevel: int = 0
     energyTimer: int = 0
 
@@ -41,28 +30,33 @@ class Traveller:
     
     class UserNoHealth(Exception): pass
 
-    def __init__(self, authenticator: Authenticator, verifyCallback: typing.Callable[[], None] = None, runMode: int = 1) -> None:
+    def __init__(self, verifyCallback: typing.Callable[[], None] = None, runMode: int = 1) -> None:
         self.runMode = runMode
-        self.auth = authenticator
         self.verifyCallback = verifyCallback
-
-        self.getUserId()
-        self.getGuildId()
-        self.getDailyStepCount()
-        print(f"[USER ID] {self.userId}")
-        print(f"[GUILD ID] {self.guildId}")
-        print(f"[STEPS] Total Daily: {self.stepCount}")
     
+    def getUserInfo(self):
+        if self.userId == None:
+            self.getUserId()
+            print(f"[USER ID] {self.userId}")
+            
+        if self.guildId == None:
+            self.getGuildId()
+            print(f"[GUILD ID] {self.guildId}")
+
+        if self.stepCount < 0:
+            self.getDailyStepCount()
+            print(f"[STEPS] Total Daily: {self.stepCount}")
+
     def takeStep(self):
         x, y = self.humanizeMouseClick()
 
         humanizedHeaders = {
             "Accept": "*/*",
-            "Host": self.apiHost,
+            "Host": self.auth.apiHost,
             "Pragma": "no-cache",
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "Origin": self.WEB_ENDPOINT,
-            "Referer": self.ENDPOINTS["travel"],
+            "Origin": self.auth.WEB_ENDPOINT,
+            "Referer": self.auth.ENDPOINTS["travel"],
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
@@ -91,10 +85,10 @@ class Traveller:
                 self.stepCount += 1
                 print(f"[STEP #{self.stepCount}] ALERT: Perform Verification!")
                 
-                if self.runMode == 3:
+                if self.runMode == 2:
                     input("> Please verify asap and press enter here to continue travelling...")
                 
-                if self.runMode != 3:
+                if self.runMode != 2:
                     self.startVerification()
 
                 return 0
@@ -171,18 +165,19 @@ class Traveller:
 
             shouldHumanizeStepping = self.stepCount % randint(8, 16)
             if shouldHumanizeStepping:
-                time.sleep(uniform(1.0, 2.4))
+                humanizedSeconds = uniform(1.0, 2.0)
+                time.sleep(humanizedSeconds)
 
             return timeToWaitForAnotherStep
     
     def startVerification(self):
-        if self.runMode != 3:
+        if self.runMode != 2:
             self.verifyCallback()
 
     def doQuests(self) -> int:
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "document",
@@ -195,7 +190,7 @@ class Traveller:
         }
         
         response = self.auth.get(
-            url = self.ENDPOINTS["quests"],
+            url = self.auth.ENDPOINTS["quests"],
             headers = humanizedHeaders
         )
 
@@ -204,9 +199,9 @@ class Traveller:
 
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
-            "Referer": self.ENDPOINTS["quests"],
+            "Referer": self.auth.ENDPOINTS["quests"],
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
@@ -221,7 +216,7 @@ class Traveller:
             headers = humanizedHeaders
         )
 
-        questApiLink = self.WEB_ENDPOINT + "/api/quest/" + getStringInBetween(
+        questApiLink = self.auth.WEB_ENDPOINT + "/api/quest/" + getStringInBetween(
             string = questActionLinkResponse.text,
             delimiter1 = "fetch('/api/quest/",
             delimiter2 = "'"
@@ -229,15 +224,15 @@ class Traveller:
         
         isUserOutOfEnergy = currentEnergy == 0
         if isUserOutOfEnergy:
-            return randint(4000, 5000) # Random milliseconds
+            return randint(800, 1500) # Random milliseconds
 
         print(f"[QUEST] Energy: {currentEnergy}/{highestEnergy}")
         while currentEnergy > 0:
             humanizedHeaders = {
                 "Accept": "*/*",
-                "Host": self.webHost,
+                "Host": self.auth.webHost,
                 "Pragma": "no-cache",
-                "Origin": self.WEB_ENDPOINT,
+                "Origin": self.auth.WEB_ENDPOINT,
                 "Referer": questActionLink,
                 "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
                 "Connection": "keep-alive",
@@ -283,17 +278,18 @@ class Traveller:
                 print(f"> Quest Point #{currentEnergy}/{highestEnergy}: {status} -> {goldEarned} gold and {expEarned} exp")
 
             currentEnergy = questResponseOnJson["quest_points"]
-            time.sleep(uniform(1.0, 2.0))
+            humanizedSeconds = uniform(0.8, 1.5)
+            time.sleep(humanizedSeconds)
 
-        return randint(4000, 5000) # Random milliseconds
+        return randint(800, 1500) # Random milliseconds
     
     def doArena(self) -> int:
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
             "Connection": "keep-alive",
-            "Referer": self.ENDPOINTS["travel"],
+            "Referer": self.auth.ENDPOINTS["travel"],
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "same-origin",
@@ -304,7 +300,7 @@ class Traveller:
         }
         
         response = self.auth.get(
-            url = self.ENDPOINTS["arenaMenu"],
+            url = self.auth.ENDPOINTS["arenaMenu"],
             headers = humanizedHeaders
         )
         
@@ -312,7 +308,7 @@ class Traveller:
         
         isUserOutOfEnergy = currentEnergy == 0
         if isUserOutOfEnergy:
-            return randint(4000, 5000) # Random milliseconds
+            return randint(800, 1500) # Random milliseconds
         
         print(f"[ARENA] Energy: {currentEnergy}/{highestEnergy}")
         while currentEnergy > 0:
@@ -329,17 +325,18 @@ class Traveller:
                 isUserTravelling = False
             )
             currentEnergy -= 1
-            time.sleep(randint(3, 6))
+            humanizedSeconds = uniform(0.8, 1.5)
+            time.sleep(humanizedSeconds)
         
-        return randint(4000, 5000) # Random milliseconds
+        return randint(800, 1500) # Random milliseconds
     
     def upgradeSkill(self, skillToUpgrade: SkillType = SkillType.Dexterity):
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
             "Connection": "keep-alive",
-            "Referer": self.ENDPOINTS["travel"],
+            "Referer": self.auth.ENDPOINTS["travel"],
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "same-origin",
@@ -351,7 +348,7 @@ class Traveller:
         
 
         response = self.auth.get(
-            url = self.ENDPOINTS["character"],
+            url = self.auth.ENDPOINTS["character"],
             headers = humanizedHeaders
         )
 
@@ -376,7 +373,7 @@ class Traveller:
             skill = "dex"
         
         skillUpgradeResponse = self.auth.post(
-            url = self.WEB_ENDPOINT + "/api/user/upgrade/" + skill,
+            url = self.auth.WEB_ENDPOINT + "/api/user/upgrade/" + skill,
             data = data,
             headers = {
                 "User-Agent": self.auth.userAgent
@@ -403,12 +400,12 @@ class Traveller:
     def generateNpc(self):
         humanizedHeaders = {
             "Accept": "*/*",
-            "Host": self.apiHost,
+            "Host": self.auth.apiHost,
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
             "Pragma": "no-cache",
             "Connection": "keep-alive",
-            "Origin": self.WEB_ENDPOINT,
-            "Referer": self.ENDPOINTS["arena"],
+            "Origin": self.auth.WEB_ENDPOINT,
+            "Referer": self.auth.ENDPOINTS["arena"],
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
@@ -420,7 +417,7 @@ class Traveller:
         }
 
         response = self.auth.post(
-            url = self.ENDPOINTS["generateNpc"],
+            url = self.auth.ENDPOINTS["generateNpc"],
             headers = humanizedHeaders,
             data = data
         )
@@ -440,7 +437,7 @@ class Traveller:
             raise Exception("Error generating NPC")
 
     def parseHighestAvailableQuest(self, questResponse: str) -> str:
-        highestAvailableQuestActionLink = self.WEB_ENDPOINT + getStringInBetween(
+        highestAvailableQuestActionLink = self.auth.WEB_ENDPOINT + getStringInBetween(
             string = questResponse,
             delimiter1 = "onclick=\"if (!window.__cfRLUnblockHandlers) return false; window.location='",
             delimiter2 = "'"
@@ -466,7 +463,7 @@ class Traveller:
                 )
             ).strip()
 
-            actionLink = self.WEB_ENDPOINT + getStringInBetween(
+            actionLink = self.auth.WEB_ENDPOINT + getStringInBetween(
                 string = materialDetails,
                 delimiter1 = "document.location='",
                 delimiter2 = "'"
@@ -494,7 +491,7 @@ class Traveller:
                 )
             )
 
-            actionLink = self.WEB_ENDPOINT + getStringInBetween(
+            actionLink = self.auth.WEB_ENDPOINT + getStringInBetween(
                 string = npcDetails,
                 delimiter1 = "href='",
                 delimiter2 = "'"
@@ -512,12 +509,12 @@ class Traveller:
     def attackNpc(self, actionLink: str, isUserTravelling: bool = True):
         class CannotAttackNpc(Exception): pass
         
-        referer = self.ENDPOINTS["travel"] if isUserTravelling else self.ENDPOINTS["arena"]
+        referer = self.auth.ENDPOINTS["travel"] if isUserTravelling else self.auth.ENDPOINTS["arena"]
         isOpponentDefeated = False
         try:
             humanizedHeaders = {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                "Host": self.webHost,
+                "Host": self.auth.webHost,
                 "Pragma": "no-cache",
                 "Referer": referer,
                 "Connection": "keep-alive",
@@ -547,10 +544,10 @@ class Traveller:
                 try:
                     humanizedHeaders = {
                         "Accept": "*/*",
-                        "Host": self.apiHost,
+                        "Host": self.auth.apiHost,
                         "Pragma": "no-cache",
                         "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-                        "Origin": self.WEB_ENDPOINT,
+                        "Origin": self.auth.WEB_ENDPOINT,
                         "Referer": actionLink,
                         "Connection": "keep-alive",
                         "Sec-Fetch-Dest": "empty",
@@ -605,9 +602,9 @@ class Traveller:
         try:
             humanizedHeaders = {
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                "Host": self.webHost,
+                "Host": self.auth.webHost,
                 "Pragma": "no-cache",
-                "Referer": self.WEB_ENDPOINT + "/travel",
+                "Referer": self.auth.WEB_ENDPOINT + "/travel",
                 "Connection": "keep-alive",
                 "Sec-Fetch-Dest": "document",
                 "Sec-Fetch-Mode": "navigate",
@@ -623,7 +620,7 @@ class Traveller:
                 headers = humanizedHeaders
             )
             
-            gatherApiEndpoint = self.WEB_ENDPOINT + "/api/crafting/material/gather/" + getStringInBetween(
+            gatherApiEndpoint = self.auth.WEB_ENDPOINT + "/api/crafting/material/gather/" + getStringInBetween(
                 string = response.text,
                 delimiter1 = "fetch('/api/crafting/material/gather/",
                 delimiter2 = "'"
@@ -635,10 +632,10 @@ class Traveller:
                 try:
                     humanizedHeaders = {
                         "Accept": "application/json",
-                        "Host": self.webHost,
+                        "Host": self.auth.webHost,
                         "Pragma": "no-cache",
                         "Content-Type": "application/json",
-                        "Origin": self.WEB_ENDPOINT,
+                        "Origin": self.auth.WEB_ENDPOINT,
                         "Referer": actionLink,
                         "Connection": "keep-alive",
                         "Sec-Fetch-Dest": "empty",
@@ -668,15 +665,15 @@ class Traveller:
                     else:
                         print(f"> Gathering! Rewards: {expGained} EXP | {craftingExpGained} Crafting EXP")
                         
-                    humanizedSeconds = randint(1.0, 2.0)
+                    humanizedSeconds = uniform(0.8, 1.5)
                     time.sleep(humanizedSeconds)
 
     def getUserId(self):
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
-            "Referer": self.WEB_ENDPOINT + "/travel",
+            "Referer": self.auth.WEB_ENDPOINT + "/travel",
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
@@ -688,7 +685,7 @@ class Traveller:
         }
         
         response = self.auth.get(
-            url = self.ENDPOINTS["character"],
+            url = self.auth.ENDPOINTS["character"],
             headers = humanizedHeaders
         )
 
@@ -701,9 +698,9 @@ class Traveller:
     def getGuildId(self):
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
-            "Referer": self.ENDPOINTS["character"],
+            "Referer": self.auth.ENDPOINTS["character"],
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
@@ -715,7 +712,7 @@ class Traveller:
         }
         
         response = self.auth.get(
-            url = self.WEB_ENDPOINT + "/user/view/" + self.userId,
+            url = self.auth.WEB_ENDPOINT + "/user/view/" + self.userId,
             headers = humanizedHeaders
         )
 
@@ -728,9 +725,9 @@ class Traveller:
     def getDailyStepCount(self):
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.webHost,
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
-            "Referer": self.WEB_ENDPOINT + "/leaderboards?guild=2378&new_page=true",
+            "Referer": self.auth.WEB_ENDPOINT + "/leaderboards?guild=2378&new_page=true",
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
@@ -742,7 +739,7 @@ class Traveller:
         }
         
         response = self.auth.get(
-            url = self.WEB_ENDPOINT + f"/leaderboards/view/steps/daily?new_page=true&guild={self.guildId}&tier=all",
+            url = self.auth.WEB_ENDPOINT + f"/leaderboards/view/steps/daily?new_page=true&guild={self.guildId}&tier=all",
             headers = humanizedHeaders
         )
 

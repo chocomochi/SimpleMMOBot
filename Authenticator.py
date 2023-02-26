@@ -47,13 +47,23 @@ class RequestWithSession:
         )
 
 class Authenticator(CookieParser, RequestWithSession):
-    MAIN_WEB_ENDPOINT = "https://web.simple-mmo.com"
-    WEB_ENDPOINTS = {
-        "travel": MAIN_WEB_ENDPOINT + "/travel",
-        "session": MAIN_WEB_ENDPOINT + "/api/session-hash"
+    WEB_ENDPOINT = "https://web.simple-mmo.com"
+    API_ENDPOINT = "https://api.simple-mmo.com"
+    ENDPOINTS = {
+        "session": WEB_ENDPOINT + "/api/session-hash",
+        "quests": WEB_ENDPOINT + "/quests/viewall",
+        "travel": WEB_ENDPOINT + "/travel",
+        "arena": WEB_ENDPOINT + "/battle/arena",
+        "arenaMenu": WEB_ENDPOINT + "/battle/menu",
+        "generateNpc": API_ENDPOINT + "/api/battlearena/generate",
+        "character": WEB_ENDPOINT + "/user/character",
+        "verifyPage": WEB_ENDPOINT + "/i-am-not-a-bot?new_page=true",
+        "verifyXHR": WEB_ENDPOINT + "/api/bot-verification",
+        "verifyImages": WEB_ENDPOINT + "/i-am-not-a-bot/generate_image?uid="
     }
     userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/109.0"
-    host = "web.simple-mmo.com"
+    webHost = "web.simple-mmo.com"
+    apiHost = "api.simple-mmo.com"
     session: requests.Session = None
 
     CSRF_TOKEN: str = None
@@ -73,7 +83,7 @@ class Authenticator(CookieParser, RequestWithSession):
 
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-            "Host": self.host,
+            "Host": self.webHost,
             "Pragma": "no-cache",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
@@ -85,7 +95,7 @@ class Authenticator(CookieParser, RequestWithSession):
         }
 
         response = self.get(
-            url = self.WEB_ENDPOINTS["travel"],
+            url = self.ENDPOINTS["travel"],
             headers = humanizedHeaders
         )
 
@@ -98,12 +108,12 @@ class Authenticator(CookieParser, RequestWithSession):
 
         humanizedHeaders = {
             "Accept": "*/*",
-            "Host": self.host,
+            "Host": self.webHost,
             "Pragma": "no-cache",
             "Cache-Control": "no-cache",
             "Content-Type": "application/json",
-            "Origin": self.MAIN_WEB_ENDPOINT,
-            "Referer": self.WEB_ENDPOINTS["travel"],
+            "Origin": self.WEB_ENDPOINT,
+            "Referer": self.ENDPOINTS["travel"],
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
@@ -117,7 +127,7 @@ class Authenticator(CookieParser, RequestWithSession):
         }
 
         self.post(
-            url = self.WEB_ENDPOINTS["session"],
+            url = self.ENDPOINTS["session"],
             data = humanizedData,
             headers = humanizedHeaders
         )

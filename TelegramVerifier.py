@@ -13,7 +13,6 @@ import os
 import json
 import asyncio
 
-
 class CollageCreator:
     def createCollage(self, imagesBytesList: list[bytes]) -> BytesIO:
         new = Image.new("RGBA", (100,100))
@@ -49,19 +48,16 @@ class CollageCreator:
         return memory
 
 class TelegramVerifier:
-    WEB_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot?new_page=true"
-    API_VERIFICATION_ENDPOINT = "https://web.simple-mmo.com/api/bot-verification"
-    IMAGES_ENDPOINT = "https://web.simple-mmo.com/i-am-not-a-bot/generate_image?uid="
     isUserCorrect: bool = False
-    scopeLoop: asyncio.AbstractEventLoop = None
+    auth: Authenticator = None
+    messageStack: list[Message] = []
     itemKeys = []
 
     class CannotVerify(Exception): pass
 
-    def __init__(self, authenticator: Authenticator) -> None:
+    def __init__(self) -> None:
         load_dotenv()
 
-        self.auth = authenticator
         self.chatId = os.getenv("chat_id")
         self.token = os.getenv("bot_token")
 
@@ -97,7 +93,7 @@ class TelegramVerifier:
                         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                         "Host": "web.simple-mmo.com",
                         "Pragma": "no-cache",
-                        "Referer": "https://web.simple-mmo.com/travel",
+                        "Referer": self.auth.ENDPOINTS["travel"],
                         "Connection": "keep-alive",
                         "Sec-Fetch-Dest": "document",
                         "Sec-Fetch-Mode": "navigate",
@@ -109,7 +105,7 @@ class TelegramVerifier:
                     }
 
                     response = self.auth.get(
-                        url = self.WEB_VERIFICATION_ENDPOINT,
+                        url = self.auth.ENDPOINTS["verifyPage"],
                         headers = humanizedHeaders
                     )
 
@@ -139,12 +135,13 @@ class TelegramVerifier:
                 ]
 
                 print("> Sending the images...")
-                await self.application.updater.bot.sendPhoto(
+                message = await self.application.updater.bot.sendPhoto(
                     chat_id = self.chatId,
                     photo = collagedImages,
                     caption = f"🔍 Find: {objectToFind.strip()}",
                     reply_markup = InlineKeyboardMarkup(buttons)
                 )
+                self.messageStack.append(message)
             except:
                 retries -= 1
                 raise Exception()
@@ -191,9 +188,9 @@ class TelegramVerifier:
         contents = []
         humanizedHeaders = {
             "Accept": "image/avif,image/webp,*/*",
-            "Host": "web.simple-mmo.com",
+            "Host": self.auth.webHost,
             "Pragma": "no-cache",
-            "Referer": self.WEB_VERIFICATION_ENDPOINT,
+            "Referer": self.auth.ENDPOINTS["verifyPage"],
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "image",
             "Sec-Fetch-Mode": "no-cors",
@@ -204,7 +201,7 @@ class TelegramVerifier:
 
         for i in range(0, 4):
             item = self.auth.get(
-                url = self.IMAGES_ENDPOINT + str(i),
+                url = self.auth.ENDPOINTS["verifyImages"] + str(i),
                 headers = humanizedHeaders
             ).content
 
@@ -216,22 +213,35 @@ class TelegramVerifier:
         query = update.callback_query
         await query.answer()
         
+        try:
+            latestVerificationMessage = self.messageStack[0]
+            expiredMessage = "⚠️ Error: verification message expired!"
+            if query.message.id != latestVerificationMessage.id:
+                await query.edit_message_caption(
+                    caption = expiredMessage,
+                    reply_markup = None
+                )
+                return
+        finally:
+            pass
+        
         item = int(query.data)
         self.isUserCorrect = self.getVerificationResults(itemPosition = item)
         
         status = "incorrect ❗"
         if self.isUserCorrect:
             print("> Verification successful!")
-            status = "correct ✔️"
+            status = "correct ✅"
         else:
             print("> Verification failed!")
 
         try:
-            await query.edit_message_reply_markup(reply_markup=None)
-            await context.bot.sendMessage(
-                chat_id = self.chatId,
-                text = f"🔒 Verification [{query.data}] is {status}"
+            statusMessage = f"{query.message.caption}\n🔒 Verification [{item + 1}] is {status}"
+            await query.edit_message_caption(
+                caption = statusMessage,
+                reply_markup = None
             )
+            self.messageStack.pop()
         finally:
             asyncio.get_event_loop().stop()
             return
@@ -250,7 +260,7 @@ class TelegramVerifier:
         }
 
         result = self.auth.post(
-            url = self.API_VERIFICATION_ENDPOINT,
+            url = self.auth.ENDPOINTS["verifyXHR"],
             data = humanizedData,
             headers = { "User-Agent": self.auth.userAgent }
         )

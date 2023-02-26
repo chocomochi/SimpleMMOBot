@@ -38,28 +38,29 @@ def animateLoading(message = "Loading..."):
         time.sleep(0.1)
 
 def main() -> None:
+    if args.type == 1:
+        telegramVerifierBot = TelegramVerifier()
+        telegramVerifierBot.logger = logging.getLogger(__name__)
+        traveller = Traveller(
+            verifyCallback = telegramVerifierBot.run,
+            runMode = args.type
+        )
+    elif args.type == 2:
+        traveller = Traveller(runMode = args.type)
+    else:
+        class NoTypeFoundException(Exception): pass
+        raise NoTypeFoundException("Please provide a type number with -t or --type")
+    
     while True:
         try:
             authenticator = Authenticator()
             authenticator.getLoginCredentials()
+
+            traveller.auth = authenticator
+            if args.type == 1:
+                telegramVerifierBot.auth = authenticator
             
-            if args.type == 1 or args.type == 2:
-                telegramVerifierBot = TelegramVerifier(authenticator = authenticator)
-                telegramVerifierBot.logger = logging.getLogger(__name__)
-                traveller = Traveller(
-                    authenticator = authenticator,
-                    verifyCallback = telegramVerifierBot.run,
-                    runMode = args.type
-                )
-            elif args.type == 3:
-                traveller = Traveller(
-                    authenticator = authenticator,
-                    runMode = args.type
-                )
-            else:
-                class NoTypeFoundException(Exception): pass
-                raise NoTypeFoundException("Please provide a type number with -t or --type")
-            
+            traveller.getUserInfo()
             takeSteps(traveller)
         except (KeyboardInterrupt, SystemExit):
             print(f"> Exiting...")
