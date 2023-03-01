@@ -14,7 +14,7 @@ parser = argparse.ArgumentParser(description = "Traveller")
 parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: w/ telegram), (2: w/o telegram)")
 args = parser.parse_args()
 
-def takeSteps(traveller: Traveller):
+def takeSteps(traveller: Traveller, authenticator: Authenticator):
     while True:
         currentTime = traveller.getTimeInSeconds()
         if currentTime >= traveller.energyTimer:
@@ -23,6 +23,7 @@ def takeSteps(traveller: Traveller):
             msToSleep = traveller.doArena()
             traveller.upgradeSkill()
             traveller.resetEnergyTimer()
+            authenticator.generateCSRFToken()
         else:
             msToSleep = traveller.takeStep()
         
@@ -60,8 +61,8 @@ def main() -> None:
             if args.type == 1:
                 telegramVerifierBot.auth = authenticator
             
-            traveller.getUserInfo()
-            takeSteps(traveller)
+            traveller.getUser()
+            takeSteps(traveller, authenticator)
         except (KeyboardInterrupt, SystemExit):
             print(f"> Exiting...")
             break
@@ -70,6 +71,7 @@ def main() -> None:
         except Exception as e:
             print(f"=======!! [ERR: Unknown error] !!=======")
             print(f"> Error details: {str(e)}")
+            raise e
             break
         
         p = multiprocessing.Process(

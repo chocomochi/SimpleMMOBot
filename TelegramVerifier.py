@@ -91,17 +91,16 @@ class TelegramVerifier:
                 if objectToFind == None:
                     humanizedHeaders = {
                         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-                        "Host": "web.simple-mmo.com",
-                        "Pragma": "no-cache",
+                        "Host": self.auth.webHost,
                         "Referer": self.auth.ENDPOINTS["travel"],
                         "Connection": "keep-alive",
                         "Sec-Fetch-Dest": "document",
                         "Sec-Fetch-Mode": "navigate",
                         "Sec-Fetch-Site": "same-origin",
                         "Sec-Fetch-User": "?1",
-                        "TE": "trailers",
                         "Upgrade-Insecure-Requests": "1",
-                        "User-Agent": self.auth.userAgent
+                        "x-requested-with": self.auth.packageName,
+                        "User-Agent": self.auth.userAgent["webView"]
                     }
 
                     response = self.auth.get(
@@ -189,14 +188,13 @@ class TelegramVerifier:
         humanizedHeaders = {
             "Accept": "image/avif,image/webp,*/*",
             "Host": self.auth.webHost,
-            "Pragma": "no-cache",
             "Referer": self.auth.ENDPOINTS["verifyPage"],
             "Connection": "keep-alive",
             "Sec-Fetch-Dest": "image",
             "Sec-Fetch-Mode": "no-cors",
             "Sec-Fetch-Site": "same-origin",
-            "TE": "trailers",
-            "User-Agent": self.auth.userAgent
+            "x-requested-with": self.auth.packageName,
+            "User-Agent": self.auth.userAgent["webView"]
         }
 
         for i in range(0, 4):
@@ -259,10 +257,21 @@ class TelegramVerifier:
             "y": y
         }
 
+        humanizedHeaders = {
+            "Accept": "*/*",
+            "Content-Type": "application/json",
+            "Host": self.auth.webHost,
+            "Origin": self.auth.WEB_ENDPOINT,
+            "Referer": self.auth.ENDPOINTS["verifyPage"],
+            "x-requested-with": self.auth.packageName,
+            "Connection": "keep-alive",
+            "User-Agent": self.auth.userAgent["webView"]
+        }
+
         result = self.auth.post(
             url = self.auth.ENDPOINTS["verifyXHR"],
             data = humanizedData,
-            headers = { "User-Agent": self.auth.userAgent }
+            headers = humanizedHeaders
         )
 
         try:
