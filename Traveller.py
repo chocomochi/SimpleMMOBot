@@ -165,8 +165,7 @@ class Traveller:
 
             shouldHumanizeStepping = self.stepCount % randint(8, 16)
             if shouldHumanizeStepping:
-                humanizedSeconds = uniform(1.0, 2.0)
-                time.sleep(humanizedSeconds)
+                timeToWaitForAnotherStep += randint(1000, 3000)
 
             return timeToWaitForAnotherStep
     
