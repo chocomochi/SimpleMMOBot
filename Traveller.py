@@ -278,10 +278,10 @@ class Traveller:
                 print(f"> Quest Point #{currentEnergy}/{highestEnergy}: {status} -> {goldEarned} gold and {expEarned} exp")
 
             currentEnergy = questResponseOnJson["quest_points"]
-            humanizedSeconds = uniform(0.8, 1.5)
+            humanizedSeconds = uniform(1.0, 2.0)
             time.sleep(humanizedSeconds)
 
-        return randint(800, 1500) # Random milliseconds
+        return randint(4000, 5000) # Random milliseconds
     
     def doArena(self) -> int:
         humanizedHeaders = {
@@ -592,7 +592,7 @@ class Traveller:
                         
                         print(f"> You've won! Rewards: {battleMessage}")
                     
-                    humanizedSeconds = uniform(1.0, 2.0)
+                    humanizedSeconds = uniform(1.0, 3.0)
                     time.sleep(humanizedSeconds)
 
     def obtainMaterials(self, actionLink: str):
@@ -665,7 +665,7 @@ class Traveller:
                     else:
                         print(f"> Gathering! Rewards: {expGained} EXP | {craftingExpGained} Crafting EXP")
                         
-                    humanizedSeconds = uniform(0.8, 1.5)
+                    humanizedSeconds = uniform(1.0, 2.5)
                     time.sleep(humanizedSeconds)
 
     def getUserId(self):
