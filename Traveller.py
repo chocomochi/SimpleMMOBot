@@ -16,6 +16,8 @@ class User:
     userLevel: int = 0
     totalSteps: int = 0
     stepCount: int = -1 # daily steps
+    
+    energyTimer: int = 0
     maxQuestPoints: int = 0
     currentQuestPoints: int = 0
     maxEnergy: int = 0
@@ -24,7 +26,7 @@ class User:
     def getUser(self):
         if self.userId == None:
             self.getUserInfo()
-            print(f"[USER] {self.userName} ({self.userId})")
+            print(f"[USER] {self.userName} ({self.userId}) : Level {self.userLevel}")
             
         if self.guildId == None:
             self.getGuildId()
@@ -103,11 +105,17 @@ class User:
         try:
             self.guildId = getStringInBetween(response.text, "/guilds/view/", '?')
         except:
+            isUserGuildless = response.text.count("/guilds/view/") <= 0
+            if isUserGuildless:
+                self.guildId = ""
+                return
+            
             class CannotFindGuildId(Exception): pass
             raise CannotFindGuildId("No Guild ID Found!")
 
     def getDailyStepCount(self):
-        if self.userLevel < 10:
+        isUserGuildless = self.guildId == ""
+        if self.userLevel < 10 or isUserGuildless:
             self.stepCount = 0
             return
         
@@ -147,10 +155,7 @@ class User:
         except:
             self.stepCount = 0
 
-
 class Traveller(User):
-    energyTimer: int = 0
-
     class StepTypes(enum.Enum):
         Material = 1
         Text = 2
@@ -165,8 +170,14 @@ class Traveller(User):
     
     class UserNoHealth(Exception): pass
 
-    def __init__(self, verifyCallback: typing.Callable[[], None] = None, runMode: int = 1) -> None:
-        self.runMode = runMode
+    def __init__(
+        self, 
+        verifyCallback: typing.Callable[[], None] = None, 
+        isRunningWithTelegram: bool = True,
+        shouldIgnoreNPCs: bool = False
+    ) -> None:
+        self.isRunningWithTelegram = isRunningWithTelegram
+        self.shouldIgnoreNPCs = shouldIgnoreNPCs
         self.verifyCallback = verifyCallback
 
     def takeStep(self):
@@ -207,12 +218,11 @@ class Traveller(User):
                 self.stepCount += 1
                 print(f"[STEP #{self.stepCount}] ALERT: Perform Verification!")
                 
-                if self.runMode == 2:
+                if not self.isRunningWithTelegram:
                     input("> Please verify asap and press enter here to continue travelling...")
+                    return 0
                 
-                if self.runMode != 2:
-                    self.startVerification()
-
+                self.startVerification()
                 return 0
             
             isUserOnNewLocation = response.text.count("You have reached") > 0
@@ -277,11 +287,12 @@ class Traveller(User):
                 
             elif stepType == self.StepTypes.Npc:
                 npcLevel, nextAction = self.parseNpcFound(npcDetails = stepMessage)
-                print(f"[STEP #{self.stepCount}] You've encountered: {stepHeadlineMessage} [{npcLevel}]")
-                self.attackNpc(actionLink = nextAction)
+                print(f"[STEP #{self.stepCount}] You've encountered (NPC): {stepHeadlineMessage} [{npcLevel}]")
+                if not self.shouldIgnoreNPCs:
+                    self.attackNpc(actionLink = nextAction)
                 
             elif stepType == self.StepTypes.Player:
-                print(f"[STEP #{self.stepCount}] You've encountered: {stepHeadlineMessage}")
+                print(f"[STEP #{self.stepCount}] You've encountered (Player): {stepHeadlineMessage}")
             
             print(f"> Step Rewards [gold/exp]: {goldEarned}/{expEarned} | Current [gold/exp/level]: {currentGold}/{currentExp}/{currentLevel}")
 
@@ -292,7 +303,7 @@ class Traveller(User):
             return timeToWaitForAnotherStep
     
     def startVerification(self):
-        if self.runMode != 2:
+        if self.isRunningWithTelegram:
             self.verifyCallback()
 
     def doQuests(self) -> int:
@@ -345,7 +356,7 @@ class Traveller(User):
         
         isUserOutOfEnergy = self.currentQuestPoints == 0
         if isUserOutOfEnergy:
-            return randint(800, 1500) # Random milliseconds
+            return randint(4000, 5000) # Random milliseconds
 
         print(f"[QUEST] Energy: {self.currentQuestPoints}/{self.maxQuestPoints}")
         while self.currentQuestPoints > 0:
@@ -404,6 +415,9 @@ class Traveller(User):
         return randint(4000, 5000) # Random milliseconds
     
     def doArena(self) -> int:
+        if self.shouldIgnoreNPCs:
+            return randint(4000, 5000)
+        
         humanizedHeaders = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
             "Host": self.auth.webHost,

@@ -108,12 +108,10 @@ class TelegramVerifier:
                         headers = humanizedHeaders
                     )
 
-                    objectToFind = Utils.removeHtmlTags(
-                        rawHtml = Utils.getStringInBetween(
-                            string = response.text,
-                            delimiter1 = 'Please press on the following item:',
-                            delimiter2 = '</div>'
-                        )
+                    objectToFind = Utils.getStringInBetween(
+                        string = response.text,
+                        delimiter1 = '<div class="bot-item">',
+                        delimiter2 = '</div>'
                     )
 
                 self.itemKeys = self.getItemKeys(response.text)
@@ -259,7 +257,6 @@ class TelegramVerifier:
 
         humanizedHeaders = {
             "Accept": "*/*",
-            "Content-Type": "application/json",
             "Host": self.auth.webHost,
             "Origin": self.auth.WEB_ENDPOINT,
             "Referer": self.auth.ENDPOINTS["verifyPage"],

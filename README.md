@@ -4,13 +4,6 @@ An auto-traveller script with captcha verification using Telegram's API.
 
 The script currently requires the user's cookie in order for it to run; the cookie can be obtained via a web browser. Additionally, using the script with telegram integrations requires both **chat id** and **bot token**. All these essential requirements should be imported inside the **.env** file (see the .env template).
 
-A type *(int)* must be provided in order for the script to run. The type serves as the modality of how the script would like to run itself.
-
-Types | Description |
---- | --- |
-1 | w/ Telegram integration
-2 | w/o Telegram integration
-
 ### Guide to installation 
 * Download/clone this repository to your environment and install the requirements
 ```
@@ -18,7 +11,7 @@ pip install -r requirements.txt
 ```
 * Run the script
 ```
-python main.py --type 1
+python main.py --help
 ```
 
 #

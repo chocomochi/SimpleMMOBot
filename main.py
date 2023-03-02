@@ -11,7 +11,20 @@ import multiprocessing
 
 RECONNECTION_TIME_INTERVAL = 4
 parser = argparse.ArgumentParser(description = "Traveller")
-parser.add_argument("-t", "--type", type=int, help="Type of Bot to run. (1: w/ telegram), (2: w/o telegram)")
+parser.add_argument(
+    "-n", 
+    "--no-telegram",
+    help="Run bot without telegram integrations",
+    required = False,
+    action="store_true"
+)
+parser.add_argument(
+    "-i", 
+    "--ignore-npc",
+    help="Auto-stepping without attacking NPCs (good for low levels!)",
+    required = False,
+    action="store_true"
+)
 args = parser.parse_args()
 
 def takeSteps(traveller: Traveller, authenticator: Authenticator):
@@ -39,18 +52,18 @@ def animateLoading(message = "Loading..."):
         time.sleep(0.1)
 
 def main() -> None:
-    if args.type == 1:
+    if not args.no_telegram:
         telegramVerifierBot = TelegramVerifier()
         telegramVerifierBot.logger = logging.getLogger(__name__)
         traveller = Traveller(
             verifyCallback = telegramVerifierBot.run,
-            runMode = args.type
+            shouldIgnoreNPCs = args.ignore_npc
         )
-    elif args.type == 2:
-        traveller = Traveller(runMode = args.type)
     else:
-        class NoTypeFoundException(Exception): pass
-        raise NoTypeFoundException("Please provide a type number with -t or --type")
+        traveller = Traveller(
+            isRunningWithTelegram = False,
+            shouldIgnoreNPCs = args.ignore_npc
+        )
     
     while True:
         try:
@@ -58,7 +71,7 @@ def main() -> None:
             authenticator.getLoginCredentials()
 
             traveller.auth = authenticator
-            if args.type == 1:
+            if not args.no_telegram:
                 telegramVerifierBot.auth = authenticator
             
             traveller.getUser()
@@ -71,7 +84,7 @@ def main() -> None:
         except Exception as e:
             print(f"=======!! [ERR: Unknown error] !!=======")
             print(f"> Error details: {str(e)}")
-            raise e
+            # raise e # Uncomment this to see whole error
             break
         
         p = multiprocessing.Process(
