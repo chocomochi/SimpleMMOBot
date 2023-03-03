@@ -6,10 +6,11 @@ import json
 import enum
 import time
 import typing
+import base64
 
 class User:
     auth: Authenticator = None
-
+    
     userName: str = None
     userId: str = None
     guildId: str = None
@@ -34,7 +35,7 @@ class User:
 
         if self.stepCount < 0:
             self.getDailyStepCount()
-            print(f"[STEPS] Total Daily: {self.stepCount}")
+            print(f"[STEPS] Today: {self.stepCount} | Overall: {self.totalSteps}") 
     
     def getUserInfo(self):
         humanizedHeaders = {
@@ -80,7 +81,7 @@ class User:
 
     def getGuildId(self):
         if self.userLevel < 10:
-            self.guildId = ""
+            self.guildId = None
             return
 
         humanizedHeaders = {
@@ -107,14 +108,13 @@ class User:
         except:
             isUserGuildless = response.text.count("/guilds/view/") <= 0
             if isUserGuildless:
-                self.guildId = ""
                 return
             
             class CannotFindGuildId(Exception): pass
             raise CannotFindGuildId("No Guild ID Found!")
 
     def getDailyStepCount(self):
-        isUserGuildless = self.guildId == ""
+        isUserGuildless = self.guildId == None
         if self.userLevel < 10 or isUserGuildless:
             self.stepCount = 0
             return
@@ -273,7 +273,7 @@ class Traveller(User):
 
             if stepType == self.StepTypes.Material:
                 materialLevelAndRarity, nextAction = self.parseMaterialFound(materialDetails = stepMessage)
-                print(f"[STEP #{self.stepCount}] You've found: {stepHeadlineMessage} [{materialLevelAndRarity}]")
+                print(f"[STEP #{self.stepCount}] You've found (Material): {stepHeadlineMessage} [{materialLevelAndRarity}]")
 
                 canBeGathered = stepMessage.count("Your skill level isn't high enough") < 1
                 
@@ -282,10 +282,10 @@ class Traveller(User):
 
             elif stepType == self.StepTypes.Item:
                 itemName, itemId = self.parseItemFound(stepMessage)
+                
+                print(f"[STEP #{self.stepCount}] You've found (Item): {itemName}")
                 if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = itemId):
                     self.equipItem(itemId = itemId)
-
-                print(f"[STEP #{self.stepCount}] You've found (Item): {itemName}")
                 
             elif stepType == self.StepTypes.Text:
                 print(f"[STEP #{self.stepCount}] {stepHeadlineMessage}")
@@ -293,7 +293,7 @@ class Traveller(User):
             elif stepType == self.StepTypes.Npc:
                 npcLevel, nextAction = self.parseNpcFound(npcDetails = stepMessage)
                 print(f"[STEP #{self.stepCount}] You've encountered (NPC): {stepHeadlineMessage} [{npcLevel}]")
-                if not self.shouldAttackNPCs:
+                if self.shouldAttackNPCs:
                     self.attackNpc(actionLink = nextAction)
                 
             elif stepType == self.StepTypes.Player:
@@ -852,18 +852,23 @@ class Traveller(User):
             headers = humanizedHeaders
         )
 
-        checkItemResponseJson = json.loads(checkItemResponse)
+        checkItemResponseJson = json.loads(checkItemResponse.text)
 
         try:
-            itemName = checkItemResponseJson
+            itemName = base64.b64decode(checkItemResponseJson["name"])
             itemLevel = checkItemResponseJson["level"]
             itemRarity = checkItemResponseJson["rarity"]
+            itemType = checkItemResponseJson["type"]
 
-            print(f"> Item Stats: {itemName} ({itemId}) [Level {itemLevel} {itemRarity}]")
+            isItemCelestial = itemRarity == "Celestial"
+            if isItemCelestial:
+                print(f"=======!! [FOUND A CELESTIAL -> {itemName}] !!=======")
+                
+            print(f"> Item Stats: {itemName} ({itemId}) [{itemType} Level {itemLevel} {itemRarity}]")
 
             isItemEquippable = checkItemResponseJson["equipable"] == 1
-            isItemLevelGreaterThanUserLevel = itemLevel <= self.userLevel
-            if not isItemEquippable or not isItemLevelGreaterThanUserLevel:
+            isItemLevelGreaterThanUserLevel = itemLevel > self.userLevel
+            if not isItemEquippable or isItemLevelGreaterThanUserLevel:
                 return False
 
             isThereAnExistingEquipmentAlready = checkItemResponseJson["currently_equipped_string"] != ""
