@@ -285,7 +285,7 @@ class Traveller(User):
                 if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = itemId):
                     self.equipItem(itemId = itemId)
 
-                print(f"[STEP #{self.stepCount}] You've found: {itemName}")
+                print(f"[STEP #{self.stepCount}] You've found (Item): {itemName}")
                 
             elif stepType == self.StepTypes.Text:
                 print(f"[STEP #{self.stepCount}] {stepHeadlineMessage}")
@@ -420,7 +420,7 @@ class Traveller(User):
         return randint(4000, 5000) # Random milliseconds
     
     def doArena(self) -> int:
-        if self.shouldAttackNPCs:
+        if not self.shouldAttackNPCs:
             return randint(4000, 5000)
         
         humanizedHeaders = {
@@ -830,6 +830,8 @@ class Traveller(User):
         if not isItemEquipped:
             class CannotEquipItem(Exception): pass
             raise CannotEquipItem(f"Failed to equip item: {itemId}")
+        
+        print(f"> Item [{itemId}] has been equipped!")
 
     def shouldEquipItem(self, itemId: str):
         humanizedHeaders = {
@@ -853,8 +855,14 @@ class Traveller(User):
         checkItemResponseJson = json.loads(checkItemResponse)
 
         try:
+            itemName = checkItemResponseJson
+            itemLevel = checkItemResponseJson["level"]
+            itemRarity = checkItemResponseJson["rarity"]
+
+            print(f"> Item Stats: {itemName} ({itemId}) [Level {itemLevel} {itemRarity}]")
+
             isItemEquippable = checkItemResponseJson["equipable"] == 1
-            isItemLevelGreaterThanUserLevel = checkItemResponseJson["level"] <= self.userLevel
+            isItemLevelGreaterThanUserLevel = itemLevel <= self.userLevel
             if not isItemEquippable or not isItemLevelGreaterThanUserLevel:
                 return False
 
