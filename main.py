@@ -25,15 +25,23 @@ parser.add_argument(
     required = False,
     action="store_true"
 )
+parser.add_argument(
+    "-s", 
+    "--no-auto-equip",
+    help="Auto-stepping without auto-equipping newly found items",
+    required = False,
+    action="store_true"
+)
 args = parser.parse_args()
 
 def takeSteps(traveller: Traveller, authenticator: Authenticator):
     while True:
         currentTime = traveller.getTimeInSeconds()
         if currentTime >= traveller.energyTimer:
+            msToSleep = 0
             traveller.upgradeSkill()
-            traveller.doQuests()
-            msToSleep = traveller.doArena()
+            msToSleep += traveller.doQuests()
+            msToSleep += traveller.doArena()
             traveller.upgradeSkill()
             traveller.resetEnergyTimer()
             authenticator.generateCSRFToken()
@@ -52,19 +60,19 @@ def animateLoading(message = "Loading..."):
         time.sleep(0.1)
 
 def main() -> None:
+    verifyCallback = None
+    
     if not args.no_telegram:
         telegramVerifierBot = TelegramVerifier()
         telegramVerifierBot.logger = logging.getLogger(__name__)
-        traveller = Traveller(
-            verifyCallback = telegramVerifierBot.run,
-            shouldIgnoreNPCs = args.ignore_npc
-        )
-    else:
-        traveller = Traveller(
-            isRunningWithTelegram = False,
-            shouldIgnoreNPCs = args.ignore_npc
-        )
+        verifyCallback = telegramVerifierBot.run
     
+    traveller = Traveller(
+        verifyCallback = verifyCallback,
+        isRunningWithTelegram = not args.no_telegram,
+        shouldAttackNPCs = not args.ignore_npc,
+        shouldAutoEquipItems = not args.no_auto_equip
+    )
     while True:
         try:
             authenticator = Authenticator()

@@ -174,10 +174,12 @@ class Traveller(User):
         self, 
         verifyCallback: typing.Callable[[], None] = None, 
         isRunningWithTelegram: bool = True,
-        shouldIgnoreNPCs: bool = False
+        shouldAutoEquipItems: bool = True,
+        shouldAttackNPCs: bool = True
     ) -> None:
         self.isRunningWithTelegram = isRunningWithTelegram
-        self.shouldIgnoreNPCs = shouldIgnoreNPCs
+        self.shouldAttackNPCs = shouldAttackNPCs
+        self.shouldAutoEquipItems = shouldAutoEquipItems
         self.verifyCallback = verifyCallback
 
     def takeStep(self):
@@ -279,7 +281,10 @@ class Traveller(User):
                     self.obtainMaterials(actionLink = nextAction)
 
             elif stepType == self.StepTypes.Item:
-                itemName = self.parseItemFound(stepMessage)
+                itemName, itemId = self.parseItemFound(stepMessage)
+                if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = itemId):
+                    self.equipItem(itemId = itemId)
+
                 print(f"[STEP #{self.stepCount}] You've found: {itemName}")
                 
             elif stepType == self.StepTypes.Text:
@@ -288,7 +293,7 @@ class Traveller(User):
             elif stepType == self.StepTypes.Npc:
                 npcLevel, nextAction = self.parseNpcFound(npcDetails = stepMessage)
                 print(f"[STEP #{self.stepCount}] You've encountered (NPC): {stepHeadlineMessage} [{npcLevel}]")
-                if not self.shouldIgnoreNPCs:
+                if not self.shouldAttackNPCs:
                     self.attackNpc(actionLink = nextAction)
                 
             elif stepType == self.StepTypes.Player:
@@ -415,7 +420,7 @@ class Traveller(User):
         return randint(4000, 5000) # Random milliseconds
     
     def doArena(self) -> int:
-        if self.shouldIgnoreNPCs:
+        if self.shouldAttackNPCs:
             return randint(4000, 5000)
         
         humanizedHeaders = {
@@ -589,7 +594,7 @@ class Traveller(User):
         ).split("</span>/")
         return [eval(i) for i in result]
 
-    def parseMaterialFound(self, materialDetails: str) -> str:
+    def parseMaterialFound(self, materialDetails: str) -> tuple[str, str]:
         try:
             materialLevelAndRarity = removeHtmlTags(
                 rawHtml = getStringInBetween(
@@ -610,14 +615,16 @@ class Traveller(User):
             class InvalidMaterial(Exception): pass
             raise InvalidMaterial("Can't parse material!")
     
-    def parseItemFound(self, itemDetails: str) -> str:
+    def parseItemFound(self, itemDetails: str) -> tuple[str, str]:
         try:
-            return removeHtmlTags(itemDetails).strip()
+            itemName = removeHtmlTags(itemDetails).strip()
+            itemId = getStringInBetween(itemDetails, "retrieveItem(", ",")
+            return (itemName, itemId)
         except:
             class InvalidItem(Exception): pass
             raise InvalidItem("Can't parse item!")
 
-    def parseNpcFound(self, npcDetails: str) -> str:
+    def parseNpcFound(self, npcDetails: str) -> tuple[str, str]:
         try:
             npcLevel = "Level " + removeHtmlTags(
                 rawHtml = getStringInBetween(
@@ -798,6 +805,68 @@ class Traveller(User):
                         
                     humanizedSeconds = uniform(1.0, 2.5)
                     time.sleep(humanizedSeconds)
+
+    def equipItem(self, itemId: str):
+        humanizedHeaders = {
+            "Accept": "*/*",
+            "Host": self.auth.webHost,
+            "Origin": self.auth.WEB_ENDPOINT,
+            "Referer": self.auth.ENDPOINTS["travel"],
+            "x-requested-with": self.auth.packageName,
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+            "Connection": "keep-alive",
+            "User-Agent": self.auth.userAgent["webView"]
+        }
+
+        itemEquippedResponse = self.auth.get(
+            url = f"{self.auth.ENDPOINTS['itemEquip']}/{itemId}?api=true",
+            headers = humanizedHeaders
+        )
+
+        isItemEquipped = itemEquippedResponse.status_code == 200
+
+        if not isItemEquipped:
+            class CannotEquipItem(Exception): pass
+            raise CannotEquipItem(f"Failed to equip item: {itemId}")
+
+    def shouldEquipItem(self, itemId: str):
+        humanizedHeaders = {
+            "Accept": "*/*",
+            "Host": self.auth.webHost,
+            "Origin": self.auth.WEB_ENDPOINT,
+            "Referer": self.auth.ENDPOINTS["travel"],
+            "x-requested-with": self.auth.packageName,
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
+            "Connection": "keep-alive",
+            "User-Agent": self.auth.userAgent["webView"]
+        }
+
+        checkItemResponse = self.auth.post(
+            url = f"{self.auth.ENDPOINTS['itemStats']}/{itemId}",
+            headers = humanizedHeaders
+        )
+
+        checkItemResponseJson = json.loads(checkItemResponse)
+
+        try:
+            isItemEquippable = checkItemResponseJson["equipable"] == 1
+            isItemLevelGreaterThanUserLevel = checkItemResponseJson["level"] <= self.userLevel
+            if not isItemEquippable or not isItemLevelGreaterThanUserLevel:
+                return False
+
+            isThereAnExistingEquipmentAlready = checkItemResponseJson["currently_equipped_string"] != ""
+            isFoundItemBetter = checkItemResponseJson["stats_string"].count("caret-up") > 0
+            if isThereAnExistingEquipmentAlready and isFoundItemBetter or not isThereAnExistingEquipmentAlready:
+                return True
+            
+            return False
+        except:
+            class CannotCheckItemStats(Exception): pass
+            raise CannotCheckItemStats("Failed getting item stats!")
 
     def humanizeMouseClick(self):
         xPosition = randint(291, 389)

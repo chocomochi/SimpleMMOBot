@@ -56,6 +56,8 @@ class Authenticator(CookieParser, RequestWithSession):
         "token": WEB_ENDPOINT + "/api/token",
         "session": WEB_ENDPOINT + "/api/session-hash",
         "quests": WEB_ENDPOINT + "/quests/viewall",
+        "itemStats": WEB_ENDPOINT + "/api/item/stats",
+        "itemEquip": WEB_ENDPOINT + "/inventory/equip",
         "step": API_ENDPOINT + "/api/travel/perform/f4gl4l3k",
         "travel": WEB_ENDPOINT + "/travel",
         "arena": WEB_ENDPOINT + "/battle/arena",
