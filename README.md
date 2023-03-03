@@ -2,7 +2,7 @@
 
 An auto-traveller script with captcha verification using Telegram's API.
 
-The script currently requires the user's cookie in order for it to run; the cookie can be obtained via a web browser. Additionally, using the script with telegram integrations requires both **chat id** and **bot token**. All these essential requirements should be imported inside the **.env** file (see the .env template).
+The script currently requires the user's email and password in order for it to run. Additionally, using the script with telegram integrations requires both **chat id** and **bot token**. All these essential requirements should be imported inside the **.env** file, see the .env template and ignore the other variables that weren't mentioned in this documentation as an essential.
 
 ### Guide to installation 
 * Download/clone this repository to your environment and install the requirements
