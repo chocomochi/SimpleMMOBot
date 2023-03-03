@@ -156,6 +156,8 @@ class User:
             self.stepCount = 0
 
 class Traveller(User):
+    equippableItemsStack = []
+
     class StepTypes(enum.Enum):
         Material = 1
         Text = 2
@@ -282,10 +284,14 @@ class Traveller(User):
 
             elif stepType == self.StepTypes.Item:
                 itemName, itemId = self.parseItemFound(stepMessage)
+                self.equippableItemsStack.append(itemId)
                 
                 print(f"[STEP #{self.stepCount}] You've found (Item): {itemName}")
-                if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = itemId):
-                    self.equipItem(itemId = itemId)
+
+                print("> Checking if there's previous item found...")
+                for id in reversed(self.equippableItemsStack):
+                    if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = id):
+                        self.equipItem(itemId = id)
                 
             elif stepType == self.StepTypes.Text:
                 print(f"[STEP #{self.stepCount}] {stepHeadlineMessage}")
@@ -862,21 +868,26 @@ class Traveller(User):
 
             isItemCelestial = itemRarity == "Celestial"
             if isItemCelestial:
-                print(f"=======!! [FOUND A CELESTIAL -> {itemName}] !!=======")
-                
+                print(f"=======!! [FOUND A CELESTIAL -> {itemName} ({itemType})] !!=======")
+            
             print(f"> Item Stats: {itemName} ({itemId}) [{itemType} Level {itemLevel} {itemRarity}]")
 
             isItemEquippable = checkItemResponseJson["equipable"] == 1
             isItemLevelGreaterThanUserLevel = itemLevel > self.userLevel
-            if not isItemEquippable or isItemLevelGreaterThanUserLevel:
+            isFoundItemWorse = checkItemResponseJson["stats_string"].count("caret-down") > 0
+            if not isItemEquippable or isFoundItemWorse:
+                self.equippableItemsStack.remove(itemId)
+                return False
+            
+            if isItemLevelGreaterThanUserLevel:
                 return False
 
-            isThereAnExistingEquipmentAlready = checkItemResponseJson["currently_equipped_string"] != ""
+            isEquipSlotEmpty = checkItemResponseJson["currently_equipped_string"] == ""
             isFoundItemBetter = checkItemResponseJson["stats_string"].count("caret-up") > 0
-            if isThereAnExistingEquipmentAlready and isFoundItemBetter or not isThereAnExistingEquipmentAlready:
+            if isFoundItemBetter or isEquipSlotEmpty:
+                self.equippableItemsStack.remove(itemId)
                 return True
             
-            return False
         except:
             class CannotCheckItemStats(Exception): pass
             raise CannotCheckItemStats("Failed getting item stats!")
