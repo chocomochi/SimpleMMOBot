@@ -1,6 +1,5 @@
 Pillow==9.4.0
-python-dotenv==0.21.1
+python-dotenv==1.0.0
 python_telegram_bot==20.0
 requests==2.26.0
 telegram==0.0.1
-winotify==1.1.0
