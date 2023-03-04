@@ -238,7 +238,7 @@ class Traveller(User):
             stepResult = json.loads(response.text)
             timeToWaitForAnotherStep = stepResult["wait_length"]
 
-            shouldWaitMore = stepResult["heading"].count("Hold your horses!") > 0
+            shouldWaitMore = stepResult["heading"].count("Hold your horses!") > 0 or stepResult["text"].count("gPlayReview();") > 0
             if shouldWaitMore:
                 return timeToWaitForAnotherStep
 
