@@ -64,7 +64,7 @@ class User:
             self.userId = str(jsonResponse["id"])
             self.userName = jsonResponse["username"]
             self.userLevel = int(jsonResponse["level"])
-            self.totalSteps = int(jsonResponse["total_steps"])
+            self.totalSteps = int(jsonResponse["total_steps"].replace(",", ""))
             return jsonResponse
         except:
             print(response.text)
