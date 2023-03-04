@@ -33,7 +33,7 @@ class User:
             self.getGuildId()
             print(f"[GUILD ID] {self.guildId}")
 
-        if self.stepCount < 0:
+        if self.stepCount == -1:
             self.getDailyStepCount()
             print(f"[STEPS] Today: {self.stepCount} | Overall: {self.totalSteps}") 
     
@@ -104,7 +104,7 @@ class User:
         )
 
         try:
-            self.guildId = getStringInBetween(response.text, "/guilds/view/", '?')
+            self.guildId = getStringInBetween(response.text, "/guilds/view/", '&')
         except:
             isUserGuildless = response.text.count("/guilds/view/") <= 0
             if isUserGuildless:
@@ -135,23 +135,14 @@ class User:
         }
         
         response = self.auth.get(
-            url = self.auth.WEB_ENDPOINT + f"/leaderboards/view/steps/daily?new_page=true&guild={self.guildId}&tier=all",
+            url = self.auth.WEB_ENDPOINT + f"/leaderboards/view/steps/daily?guild={self.guildId}&tier=all",
             headers = humanizedHeaders
         )
 
         try:
-            stringsFound = getMultipleStringsInBetween(response.text, f"/user/view/{self.userId}\">", " steps")
-            for string in stringsFound:
-                try:
-                    if string.count("Loading...") > 0:
-                        continue
-
-                    extracted = getStringInBetween(string, f"/user/view/{self.userId}'>", " steps")
-                    extracted = getStringInBetween(extracted + " steps", "</td>", " steps")
-                    self.stepCount = int(removeHtmlTags(extracted.replace(",", "")))
-                    break
-                except:
-                    continue
+            extracted = getStringInBetween(response.text, f"/user/view/{self.userId}'>", " steps")
+            extracted = getStringInBetween(extracted + " steps", "whitespace-nowrap\">", " steps")
+            self.stepCount = int(removeHtmlTags(extracted.replace(",", "")))
         except:
             self.stepCount = 0
 
@@ -170,6 +161,16 @@ class Traveller(User):
         Defense = 2
         Dexterity = 3
     
+    class RarityType(enum.Enum):
+        Common = 1
+        Uncommon = 2
+        Rare = 3
+        Elite = 4
+        Epic = 5
+        Legendary = 6
+        Celestial = 7
+        Exotic = 8
+
     class UserNoHealth(Exception): pass
 
     def __init__(
@@ -238,7 +239,7 @@ class Traveller(User):
             stepResult = json.loads(response.text)
             timeToWaitForAnotherStep = stepResult["wait_length"]
 
-            shouldWaitMore = stepResult["heading"].count("Hold your horses!") > 0 or stepResult["text"].count("gPlayReview();") > 0
+            shouldWaitMore = response.text.count("Hold your horses!") > 0 or response.text.count("gPlayReview();") > 0
             if shouldWaitMore:
                 return timeToWaitForAnotherStep
 
@@ -288,7 +289,7 @@ class Traveller(User):
                 
                 print(f"[STEP #{self.stepCount}] You've found (Item): {itemName}")
 
-                print("> Checking if there's previous item found...")
+                print("> Checking if there's previous items found...")
                 for id in reversed(self.equippableItemsStack):
                     if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = id):
                         self.equipItem(itemId = id)
@@ -490,7 +491,6 @@ class Traveller(User):
             "User-Agent": self.auth.userAgent["webView"]
         }
         
-
         response = self.auth.get(
             url = self.auth.ENDPOINTS["character"],
             headers = humanizedHeaders
@@ -621,8 +621,12 @@ class Traveller(User):
             class InvalidMaterial(Exception): pass
             raise InvalidMaterial("Can't parse material!")
     
-    def parseItemFound(self, itemDetails: str) -> tuple[str, str]:
+    def parseItemFound(self, itemDetails: str, isFromNpc: bool = False) -> tuple[str, str]:
         try:
+            if isFromNpc:
+                itemId = getStringInBetween(itemDetails, "retrieveItem(", ")")
+                return ("", itemId)
+            
             itemName = removeHtmlTags(itemDetails).strip()
             itemId = getStringInBetween(itemDetails, "retrieveItem(", ",")
             return (itemName, itemId)
@@ -738,6 +742,16 @@ class Traveller(User):
                             continue
                         
                         print(f"> You've won! Rewards: {battleMessage}")
+
+                        isItemAReward = battleRewards.count("retrieveItem") > 0
+                        if isItemAReward:
+                            _, itemId = self.parseItemFound(battleRewards, isFromNpc = True)
+                            self.equippableItemsStack.append(itemId)
+
+                            print("> Checking if there's previous items found...")
+                            for id in reversed(self.equippableItemsStack):
+                                if self.shouldAutoEquipItems and self.shouldEquipItem(itemId = id):
+                                    self.equipItem(itemId = id)
                     
                     humanizedSeconds = uniform(2.0, 4.0)
                     time.sleep(humanizedSeconds)
@@ -863,24 +877,33 @@ class Traveller(User):
         try:
             itemName = base64.b64decode(checkItemResponseJson["name"])
             itemLevel = checkItemResponseJson["level"]
-            itemRarity = checkItemResponseJson["rarity"]
+            itemRarity = self.getRarityType(checkItemResponseJson["rarity"])
             itemType = checkItemResponseJson["type"]
 
-            isItemCelestial = itemRarity == "Celestial"
-            if isItemCelestial:
-                print(f"=======!! [FOUND A CELESTIAL -> {itemName} ({itemType})] !!=======")
-            
-            print(f"> Item Stats: {itemName} ({itemId}) [{itemType} Level {itemLevel} {itemRarity}]")
+            isItemCelestialOrExotic = itemRarity.value >= self.RarityType.Celestial.value
+            isItemEpicOrAbove = itemRarity.value >= self.RarityType.Epic.value
 
+            if isItemCelestialOrExotic:
+                print(f"=======!! [FOUND A {itemRarity.name.upper()} -> {itemName} ({itemType})] !!=======")
+            
+            print(f"> Item Stats: {itemName} ({itemId}) [{itemType} Level {itemLevel} {itemRarity.name}]")
+
+            isItemATool = self.isItemATool(itemType = itemType)
             isItemEquippable = checkItemResponseJson["equipable"] == 1
+            isItemCurrentlyEquipped = checkItemResponseJson["currently_equipped"] == True
             isItemLevelGreaterThanUserLevel = itemLevel > self.userLevel
             isFoundItemWorse = checkItemResponseJson["stats_string"].count("caret-down") > 0
-            if not isItemEquippable or isFoundItemWorse:
+            
+            if not isItemEquippable or isFoundItemWorse or isItemCurrentlyEquipped or isItemATool and not isItemEpicOrAbove:
                 self.equippableItemsStack.remove(itemId)
                 return False
-            
+
             if isItemLevelGreaterThanUserLevel:
                 return False
+            
+            if isItemATool and isItemEpicOrAbove:
+                self.equippableItemsStack.remove(itemId)
+                return True
 
             isEquipSlotEmpty = checkItemResponseJson["currently_equipped_string"] == ""
             isFoundItemBetter = checkItemResponseJson["stats_string"].count("caret-up") > 0
@@ -891,6 +914,19 @@ class Traveller(User):
         except:
             class CannotCheckItemStats(Exception): pass
             raise CannotCheckItemStats("Failed getting item stats!")
+
+    def isItemATool(self, itemType: str) -> bool:
+        try:
+            validTools = [
+                "Fishing Rod",
+                "Wood Axe",
+                "Pickaxe",
+                "Shovel"
+            ]
+            validTools.index(itemType)
+            return True
+        except:
+            return False
 
     def humanizeMouseClick(self):
         xPosition = randint(291, 389)
@@ -912,6 +948,24 @@ class Traveller(User):
         
         class InvalidStepType(Exception): pass
         raise InvalidStepType(f"No step type found for: {stepType}") 
+
+    def getRarityType(self, itemRarity: str) -> RarityType:
+        if itemRarity == "Common":
+            return self.RarityType.Common
+        if itemRarity == "Uncommon":
+            return self.RarityType.Uncommon
+        if itemRarity == "Rare":
+            return self.RarityType.Rare
+        if itemRarity == "Elite":
+            return self.RarityType.Elite
+        if itemRarity == "Epic":
+            return self.RarityType.Epic
+        if itemRarity == "Legendary":
+            return self.RarityType.Legendary
+        if itemRarity == "Celestial":
+            return self.RarityType.Celestial
+        if itemRarity == "Exotic":
+            return self.RarityType.Exotic
 
     def getTimeInSeconds(self) -> int:
         return round(time.time())
